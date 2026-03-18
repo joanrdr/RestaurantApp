@@ -1,6 +1,9 @@
 #import <Cocoa/Cocoa.h>
 #import <WebKit/WebKit.h>
 
+static NSString *APP_VERSION = @"2.0";
+static NSString *GITHUB_REPO = @"joanrdr/RestaurantApp";
+
 // ============ PATHS ============
 static NSString* appSupportDir() {
     NSString *appSupport = [NSSearchPathForDirectoriesInDomains(
@@ -33,24 +36,21 @@ static NSString* loadSavedData() {
 
 static NSString* loadHTML() {
     NSString *bundlePath = [[NSBundle mainBundle] pathForResource:@"app" ofType:@"html"];
-    if (bundlePath) {
+    if (bundlePath)
         return [NSString stringWithContentsOfFile:bundlePath encoding:NSUTF8StringEncoding error:nil];
-    }
     NSString *execPath = [[NSBundle mainBundle] executablePath];
     NSString *execDir = [execPath stringByDeletingLastPathComponent];
     NSString *devPath = [[execDir stringByDeletingLastPathComponent] stringByAppendingPathComponent:@"resources/app.html"];
-    if ([[NSFileManager defaultManager] fileExistsAtPath:devPath]) {
+    if ([[NSFileManager defaultManager] fileExistsAtPath:devPath])
         return [NSString stringWithContentsOfFile:devPath encoding:NSUTF8StringEncoding error:nil];
-    }
     NSString *sameDirPath = [execDir stringByAppendingPathComponent:@"app.html"];
-    if ([[NSFileManager defaultManager] fileExistsAtPath:sameDirPath]) {
+    if ([[NSFileManager defaultManager] fileExistsAtPath:sameDirPath])
         return [NSString stringWithContentsOfFile:sameDirPath encoding:NSUTF8StringEncoding error:nil];
-    }
     return @"<html><body><h1>Error: app.html no encontrado</h1></body></html>";
 }
 
 // ============ APP DELEGATE ============
-@interface AppDelegate : NSObject <NSApplicationDelegate, WKScriptMessageHandler, WKNavigationDelegate>
+@interface AppDelegate : NSObject <NSApplicationDelegate, WKScriptMessageHandler, WKNavigationDelegate, NSURLSessionDelegate>
 @property (strong) NSWindow *window;
 @property (strong) WKWebView *webView;
 @property (strong) WKWebView *printWebView;
@@ -99,6 +99,126 @@ static NSString* loadHTML() {
     [self.window.contentView addSubview:self.webView];
     [self.window makeKeyAndOrderFront:nil];
     [self setupMenuBar];
+
+    // Check for updates after launch
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        [self checkForUpdates:NO];
+    });
+}
+
+// ============ AUTO UPDATE ============
+- (void)checkForUpdates:(BOOL)manual {
+    NSString *urlStr = [NSString stringWithFormat:
+        @"https://api.github.com/repos/%@/releases/latest", GITHUB_REPO];
+    NSURL *url = [NSURL URLWithString:urlStr];
+    NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url];
+    [request setValue:@"application/vnd.github.v3+json" forHTTPHeaderField:@"Accept"];
+    [request setTimeoutInterval:10];
+
+    NSURLSession *session = [NSURLSession sharedSession];
+    [[session dataTaskWithRequest:request completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+        if (error || !data) {
+            if (manual) {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    [self notifyJS:@"updateResult" data:@"{\"status\":\"error\",\"msg\":\"No se pudo conectar\"}"];
+                });
+            }
+            return;
+        }
+
+        NSDictionary *json = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
+        if (!json) return;
+
+        NSString *latestTag = json[@"tag_name"];
+        if (!latestTag) {
+            if (manual) {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    [self notifyJS:@"updateResult" data:@"{\"status\":\"no_releases\",\"msg\":\"No hay releases publicados\"}"];
+                });
+            }
+            return;
+        }
+
+        // Remove 'v' prefix if present
+        NSString *latestVersion = latestTag;
+        if ([latestVersion hasPrefix:@"v"]) latestVersion = [latestVersion substringFromIndex:1];
+
+        NSString *body = json[@"body"] ?: @"";
+        NSString *htmlUrl = json[@"html_url"] ?: @"";
+
+        // Get download URL from assets
+        NSArray *assets = json[@"assets"];
+        NSString *downloadUrl = @"";
+        if (assets && [assets count] > 0) {
+            for (NSDictionary *asset in assets) {
+                NSString *name = asset[@"name"];
+                if ([name hasSuffix:@".zip"] || [name hasSuffix:@".dmg"] || [name hasSuffix:@".app"]) {
+                    downloadUrl = asset[@"browser_download_url"] ?: @"";
+                    break;
+                }
+            }
+        }
+
+        // Compare versions
+        NSComparisonResult cmp = [APP_VERSION compare:latestVersion options:NSNumericSearch];
+
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (cmp == NSOrderedAscending) {
+                // New version available
+                NSString *info = [NSString stringWithFormat:
+                    @"{\"status\":\"available\",\"current\":\"%@\",\"latest\":\"%@\",\"notes\":\"%@\",\"url\":\"%@\",\"download\":\"%@\"}",
+                    APP_VERSION,
+                    latestVersion,
+                    [body stringByReplacingOccurrencesOfString:@"\"" withString:@"\\\""],
+                    htmlUrl,
+                    downloadUrl];
+                [self notifyJS:@"updateResult" data:info];
+            } else {
+                if (manual) {
+                    NSString *info = [NSString stringWithFormat:
+                        @"{\"status\":\"up_to_date\",\"current\":\"%@\"}", APP_VERSION];
+                    [self notifyJS:@"updateResult" data:info];
+                }
+            }
+        });
+    }] resume];
+}
+
+- (void)downloadUpdate:(NSString *)urlStr {
+    NSURL *url = [NSURL URLWithString:urlStr];
+    NSString *downloads = [NSSearchPathForDirectoriesInDomains(
+        NSDownloadsDirectory, NSUserDomainMask, YES) firstObject];
+
+    NSURLSession *session = [NSURLSession sharedSession];
+    [[session downloadTaskWithURL:url completionHandler:^(NSURL *tempFile, NSURLResponse *response, NSError *error) {
+        if (error || !tempFile) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [self notifyJS:@"downloadResult" data:@"{\"status\":\"error\"}"];
+            });
+            return;
+        }
+
+        NSString *filename = [response suggestedFilename] ?: @"RestaurantApp_update.zip";
+        NSString *destPath = [downloads stringByAppendingPathComponent:filename];
+
+        // Remove existing
+        [[NSFileManager defaultManager] removeItemAtPath:destPath error:nil];
+        [[NSFileManager defaultManager] moveItemAtURL:tempFile
+                                                toURL:[NSURL fileURLWithPath:destPath]
+                                                error:nil];
+
+        dispatch_async(dispatch_get_main_queue(), ^{
+            NSString *info = [NSString stringWithFormat:@"{\"status\":\"ok\",\"path\":\"%@\"}", destPath];
+            [self notifyJS:@"downloadResult" data:info];
+            // Open Downloads folder
+            [[NSWorkspace sharedWorkspace] openURL:[NSURL fileURLWithPath:downloads]];
+        });
+    }] resume];
+}
+
+- (void)notifyJS:(NSString *)fn data:(NSString *)data {
+    NSString *js = [NSString stringWithFormat:@"if(typeof %@==='function')%@(%@);", fn, fn, data];
+    [self.webView evaluateJavaScript:js completionHandler:nil];
 }
 
 - (void)setupMenuBar {
@@ -106,6 +226,7 @@ static NSString* loadHTML() {
     NSMenuItem *appMenuItem = [[NSMenuItem alloc] init];
     NSMenu *appMenu = [[NSMenu alloc] initWithTitle:@"RestaurantApp"];
     [appMenu addItemWithTitle:@"Acerca de RestaurantApp" action:@selector(orderFrontStandardAboutPanel:) keyEquivalent:@""];
+    [appMenu addItemWithTitle:@"Buscar Actualizaciones..." action:@selector(manualCheckUpdate) keyEquivalent:@"u"];
     [appMenu addItem:[NSMenuItem separatorItem]];
     [appMenu addItemWithTitle:@"Salir" action:@selector(terminate:) keyEquivalent:@"q"];
     appMenuItem.submenu = appMenu;
@@ -124,6 +245,10 @@ static NSString* loadHTML() {
     [menuBar addItem:editMenuItem];
 
     [NSApp setMainMenu:menuBar];
+}
+
+- (void)manualCheckUpdate {
+    [self checkForUpdates:YES];
 }
 
 - (void)webView:(WKWebView *)webView didFinishNavigation:(WKNavigation *)navigation {
@@ -145,6 +270,10 @@ static NSString* loadHTML() {
     }
 
     if (webView == self.webView) {
+        // Send version to JS
+        NSString *verJS = [NSString stringWithFormat:@"window._appVersion='%@';", APP_VERSION];
+        [self.webView evaluateJavaScript:verJS completionHandler:nil];
+
         NSString *saved = loadSavedData();
         if (saved) {
             NSString *escaped = [saved stringByReplacingOccurrencesOfString:@"\\" withString:@"\\\\"];
@@ -154,7 +283,7 @@ static NSString* loadHTML() {
             NSString *js = [NSString stringWithFormat:@"loadFromNative('%@');", escaped];
             [self.webView evaluateJavaScript:js completionHandler:nil];
         }
-        // Send backup dir path to JS
+
         NSString *bdir = backupDir();
         NSString *js2 = [NSString stringWithFormat:@"window._nativeBackupDir='%@';", bdir];
         [self.webView evaluateJavaScript:js2 completionHandler:nil];
@@ -185,19 +314,15 @@ static NSString* loadHTML() {
         }
     }
     else if ([action isEqualToString:@"backup"]) {
-        // Save backup with timestamp
         NSDateFormatter *fmt = [[NSDateFormatter alloc] init];
         [fmt setDateFormat:@"yyyy-MM-dd_HHmmss"];
         NSString *ts = [fmt stringFromDate:[NSDate date]];
         NSString *label = json[@"label"] ?: @"manual";
         NSString *filename = [NSString stringWithFormat:@"backup_%@_%@.json", label, ts];
         NSString *path = [backupDir() stringByAppendingPathComponent:filename];
-
         NSData *jsonData = [NSJSONSerialization dataWithJSONObject:json[@"data"]
                                                           options:NSJSONWritingPrettyPrinted error:nil];
         [jsonData writeToFile:path atomically:YES];
-
-        // Return success to JS
         NSString *js = [NSString stringWithFormat:@"backupDone('%@','%@');", filename, path];
         [self.webView evaluateJavaScript:js completionHandler:nil];
     }
@@ -214,7 +339,6 @@ static NSString* loadHTML() {
                 [backups addObject:@{@"name":f, @"size":size?:@0, @"date":[date description]?:@""}];
             }
         }
-        // Sort by date desc
         [backups sortUsingComparator:^NSComparisonResult(NSDictionary *a, NSDictionary *b) {
             return [b[@"date"] compare:a[@"date"]];
         }];
@@ -228,7 +352,6 @@ static NSString* loadHTML() {
         NSString *path = [backupDir() stringByAppendingPathComponent:filename];
         NSString *content = [NSString stringWithContentsOfFile:path encoding:NSUTF8StringEncoding error:nil];
         if (content) {
-            // Also save as current data
             [content writeToFile:dataFilePath() atomically:YES encoding:NSUTF8StringEncoding error:nil];
             NSString *escaped = [content stringByReplacingOccurrencesOfString:@"\\" withString:@"\\\\"];
             escaped = [escaped stringByReplacingOccurrencesOfString:@"'" withString:@"\\'"];
@@ -244,14 +367,11 @@ static NSString* loadHTML() {
         [[NSFileManager defaultManager] removeItemAtPath:path error:nil];
     }
     else if ([action isEqualToString:@"exportFile"]) {
-        // Save file to Downloads
         NSString *filename = json[@"filename"];
         NSString *content = json[@"content"];
         NSString *downloads = [NSSearchPathForDirectoriesInDomains(
             NSDownloadsDirectory, NSUserDomainMask, YES) firstObject];
         NSString *path = [downloads stringByAppendingPathComponent:filename];
-
-        // If file exists, add number
         NSFileManager *fm = [NSFileManager defaultManager];
         if ([fm fileExistsAtPath:path]) {
             NSString *base = [filename stringByDeletingPathExtension];
@@ -263,12 +383,22 @@ static NSString* loadHTML() {
             }
         }
         [content writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:nil];
-        NSString *js = [NSString stringWithFormat:@"exportDone('%@');",
-                        [path lastPathComponent]];
+        NSString *js = [NSString stringWithFormat:@"exportDone('%@');", [path lastPathComponent]];
         [self.webView evaluateJavaScript:js completionHandler:nil];
     }
     else if ([action isEqualToString:@"openBackupFolder"]) {
-        [[NSWorkspace sharedWorkspace] openFile:backupDir()];
+        [[NSWorkspace sharedWorkspace] openURL:[NSURL fileURLWithPath:backupDir()]];
+    }
+    else if ([action isEqualToString:@"checkUpdate"]) {
+        [self checkForUpdates:YES];
+    }
+    else if ([action isEqualToString:@"downloadUpdate"]) {
+        NSString *url = json[@"url"];
+        if (url) [self downloadUpdate:url];
+    }
+    else if ([action isEqualToString:@"openURL"]) {
+        NSString *url = json[@"url"];
+        if (url) [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:url]];
     }
 }
 
