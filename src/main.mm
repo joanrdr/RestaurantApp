@@ -164,54 +164,154 @@ static NSString* loadHTML() {
 
         dispatch_async(dispatch_get_main_queue(), ^{
             if (cmp == NSOrderedAscending) {
-                // New version available
-                NSString *info = [NSString stringWithFormat:
-                    @"{\"status\":\"available\",\"current\":\"%@\",\"latest\":\"%@\",\"notes\":\"%@\",\"url\":\"%@\",\"download\":\"%@\"}",
-                    APP_VERSION,
-                    latestVersion,
-                    [body stringByReplacingOccurrencesOfString:@"\"" withString:@"\\\""],
-                    htmlUrl,
-                    downloadUrl];
+                // New version available - use proper JSON serialization
+                NSDictionary *result = @{
+                    @"status": @"available",
+                    @"current": APP_VERSION,
+                    @"latest": latestVersion,
+                    @"notes": body ?: @"",
+                    @"url": htmlUrl ?: @"",
+                    @"download": downloadUrl ?: @""
+                };
+                NSData *jsonData = [NSJSONSerialization dataWithJSONObject:result options:0 error:nil];
+                NSString *info = [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
                 [self notifyJS:@"updateResult" data:info];
             } else {
                 if (manual) {
-                    NSString *info = [NSString stringWithFormat:
-                        @"{\"status\":\"up_to_date\",\"current\":\"%@\"}", APP_VERSION];
-                    [self notifyJS:@"updateResult" data:info];
+                    NSDictionary *r = @{@"status":@"up_to_date",@"current":APP_VERSION};
+                    NSData *jd = [NSJSONSerialization dataWithJSONObject:r options:0 error:nil];
+                    [self notifyJS:@"updateResult" data:[[NSString alloc] initWithData:jd encoding:NSUTF8StringEncoding]];
                 }
             }
         });
     }] resume];
 }
 
-- (void)downloadUpdate:(NSString *)urlStr {
+- (void)downloadAndInstallUpdate:(NSString *)urlStr {
     NSURL *url = [NSURL URLWithString:urlStr];
-    NSString *downloads = [NSSearchPathForDirectoriesInDomains(
-        NSDownloadsDirectory, NSUserDomainMask, YES) firstObject];
+
+    // Notify JS that download started
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self notifyJS:@"downloadResult" data:@"{\"status\":\"downloading\"}"];
+    });
 
     NSURLSession *session = [NSURLSession sharedSession];
     [[session downloadTaskWithURL:url completionHandler:^(NSURL *tempFile, NSURLResponse *response, NSError *error) {
         if (error || !tempFile) {
             dispatch_async(dispatch_get_main_queue(), ^{
-                [self notifyJS:@"downloadResult" data:@"{\"status\":\"error\"}"];
+                [self notifyJS:@"downloadResult" data:@"{\"status\":\"error\",\"msg\":\"Error descargando\"}"];
             });
             return;
         }
 
-        NSString *filename = [response suggestedFilename] ?: @"RestaurantApp_update.zip";
-        NSString *destPath = [downloads stringByAppendingPathComponent:filename];
+        NSFileManager *fm = [NSFileManager defaultManager];
 
-        // Remove existing
-        [[NSFileManager defaultManager] removeItemAtPath:destPath error:nil];
-        [[NSFileManager defaultManager] moveItemAtURL:tempFile
-                                                toURL:[NSURL fileURLWithPath:destPath]
-                                                error:nil];
+        // 1. Move zip to temp with proper extension
+        NSString *tmpZip = [NSTemporaryDirectory() stringByAppendingPathComponent:@"RestaurantApp_update.zip"];
+        [fm removeItemAtPath:tmpZip error:nil];
+        [fm moveItemAtURL:tempFile toURL:[NSURL fileURLWithPath:tmpZip] error:nil];
+
+        // 2. Unzip to temp folder
+        NSString *tmpExtract = [NSTemporaryDirectory() stringByAppendingPathComponent:@"RestaurantApp_extract"];
+        [fm removeItemAtPath:tmpExtract error:nil];
+        [fm createDirectoryAtPath:tmpExtract withIntermediateDirectories:YES attributes:nil error:nil];
+
+        NSTask *unzip = [[NSTask alloc] init];
+        unzip.launchPath = @"/usr/bin/unzip";
+        unzip.arguments = @[@"-o", tmpZip, @"-d", tmpExtract];
+        unzip.standardOutput = [NSPipe pipe];
+        unzip.standardError = [NSPipe pipe];
+        [unzip launch];
+        [unzip waitUntilExit];
+
+        if (unzip.terminationStatus != 0) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [self notifyJS:@"downloadResult" data:@"{\"status\":\"error\",\"msg\":\"Error descomprimiendo\"}"];
+            });
+            return;
+        }
+
+        // 3. Find the .app inside extracted folder
+        NSString *newAppPath = nil;
+        NSArray *contents = [fm contentsOfDirectoryAtPath:tmpExtract error:nil];
+        for (NSString *item in contents) {
+            if ([item hasSuffix:@".app"]) {
+                newAppPath = [tmpExtract stringByAppendingPathComponent:item];
+                break;
+            }
+        }
+        // Also check one level deeper (in case zip has a folder)
+        if (!newAppPath) {
+            for (NSString *item in contents) {
+                NSString *subDir = [tmpExtract stringByAppendingPathComponent:item];
+                BOOL isDir;
+                if ([fm fileExistsAtPath:subDir isDirectory:&isDir] && isDir) {
+                    NSArray *sub = [fm contentsOfDirectoryAtPath:subDir error:nil];
+                    for (NSString *s in sub) {
+                        if ([s hasSuffix:@".app"]) {
+                            newAppPath = [subDir stringByAppendingPathComponent:s];
+                            break;
+                        }
+                    }
+                }
+                if (newAppPath) break;
+            }
+        }
+
+        if (!newAppPath) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [self notifyJS:@"downloadResult" data:@"{\"status\":\"error\",\"msg\":\"No se encontro la app en el zip\"}"];
+            });
+            return;
+        }
+
+        // 4. Get current app path
+        NSString *currentApp = [[NSBundle mainBundle] bundlePath];
+
+        // 5. Create updater script that will:
+        //    - Wait for this app to quit
+        //    - Replace old app with new app
+        //    - Launch the new app
+        NSString *script = [NSString stringWithFormat:
+            @"#!/bin/bash\n"
+            "sleep 1\n"
+            "while kill -0 %d 2>/dev/null; do sleep 0.5; done\n"
+            "rm -rf \"%@\"\n"
+            "cp -R \"%@\" \"%@\"\n"
+            "xattr -cr \"%@\" 2>/dev/null\n"
+            "open \"%@\"\n"
+            "rm -rf \"%@\"\n"
+            "rm -f \"%@\"\n"
+            "rm -f \"$0\"\n",
+            [[NSProcessInfo processInfo] processIdentifier],
+            currentApp,
+            newAppPath, currentApp,
+            currentApp,
+            currentApp,
+            tmpExtract,
+            tmpZip];
+
+        NSString *scriptPath = [NSTemporaryDirectory() stringByAppendingPathComponent:@"restaurant_updater.sh"];
+        [script writeToFile:scriptPath atomically:YES encoding:NSUTF8StringEncoding error:nil];
+
+        // Make executable
+        NSDictionary *attrs = @{NSFilePosixPermissions: @0755};
+        [fm setAttributes:attrs ofItemAtPath:scriptPath error:nil];
 
         dispatch_async(dispatch_get_main_queue(), ^{
-            NSString *info = [NSString stringWithFormat:@"{\"status\":\"ok\",\"path\":\"%@\"}", destPath];
-            [self notifyJS:@"downloadResult" data:info];
-            // Open Downloads folder
-            [[NSWorkspace sharedWorkspace] openURL:[NSURL fileURLWithPath:downloads]];
+            // 6. Launch the updater script
+            NSTask *updater = [[NSTask alloc] init];
+            updater.launchPath = @"/bin/bash";
+            updater.arguments = @[scriptPath];
+            [updater launch];
+
+            // 7. Notify and quit
+            [self notifyJS:@"downloadResult" data:@"{\"status\":\"installing\"}"];
+
+            // Give JS a moment to show the message, then quit
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                [NSApp terminate:nil];
+            });
         });
     }] resume];
 }
@@ -394,7 +494,7 @@ static NSString* loadHTML() {
     }
     else if ([action isEqualToString:@"downloadUpdate"]) {
         NSString *url = json[@"url"];
-        if (url) [self downloadUpdate:url];
+        if (url) [self downloadAndInstallUpdate:url];
     }
     else if ([action isEqualToString:@"openURL"]) {
         NSString *url = json[@"url"];
