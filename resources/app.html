@@ -123,6 +123,20 @@ tr:hover td{background:rgba(255,255,255,.02);}
 .progress-fill{height:100%;border-radius:4px;transition:width .3s;}
 ::-webkit-scrollbar{width:7px;}::-webkit-scrollbar-track{background:var(--bg);}::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
 @media print{body{background:#fff;}.sidebar,.header,.notif-bar{display:none!important;}.main{width:100%;}.content{padding:0;}}
+/* UPDATE BANNER */
+.update-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.85);z-index:3000;justify-content:center;align-items:center;}
+.update-overlay.show{display:flex;}
+.update-box{background:var(--surface);border:2px solid var(--green);border-radius:20px;padding:40px;max-width:520px;width:90%;text-align:center;animation:popIn .4s ease;}
+@keyframes popIn{from{transform:scale(.8);opacity:0;}to{transform:scale(1);opacity:1;}}
+.update-box h2{font-size:26px;color:var(--green);margin-bottom:8px;}
+.update-box .ver-compare{display:flex;justify-content:center;align-items:center;gap:16px;margin:20px 0;font-size:20px;font-weight:700;}
+.update-box .ver-old{color:var(--t2);text-decoration:line-through;}
+.update-box .ver-arrow{color:var(--green);font-size:28px;}
+.update-box .ver-new{color:var(--green);font-size:28px;}
+.update-box .update-timer{margin-top:16px;font-size:13px;color:var(--t2);}
+.header-update{display:none;padding:6px 14px;border-radius:20px;background:rgba(34,197,94,.15);color:var(--green);font-size:13px;font-weight:600;cursor:pointer;animation:pulse 2s infinite;border:1px solid rgba(34,197,94,.3);}
+.header-update.show{display:flex;align-items:center;gap:6px;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.6;}}
 </style>
 </head>
 <body>
@@ -139,6 +153,7 @@ tr:hover td{background:rgba(255,255,255,.02);}
     <div class="header">
         <h1 id="page-title">Dashboard</h1>
         <div style="display:flex;align-items:center;gap:14px;">
+            <div id="header-upd" class="header-update" onclick="showUpdateBanner()">&#8593; Actualizacion disponible</div>
             <span id="clock" style="color:var(--t2);font-size:14px;font-weight:500;"></span>
         </div>
     </div>
@@ -147,6 +162,9 @@ tr:hover td{background:rgba(255,255,255,.02);}
 </div>
 </div>
 <div class="modal-bg" id="modal"><div class="modal" id="modal-body"></div></div>
+<div class="update-overlay" id="update-overlay">
+    <div class="update-box" id="update-box-content"></div>
+</div>
 <script>
 // =========================================================
 //  DB
@@ -314,6 +332,7 @@ function ensureFields(){
     if(!DB.backupConfig)DB.backupConfig={enabled:false,frequency:'daily',lastBackup:null};
     if(!DB.nextPedido)DB.nextPedido=DB.pedidos.length>0?Math.max.apply(null,DB.pedidos.map(function(p){return p.id;}))+1:1;
     if(!DB.nextMenu)DB.nextMenu=DB.menu.length>0?Math.max.apply(null,DB.menu.map(function(m){return m.id;}))+1:1;
+    if(DB.updateDismissCount===undefined)DB.updateDismissCount=0;
 }
 
 function initDB(){
@@ -1016,75 +1035,179 @@ function printAudit(){
 }
 
 // =========================================================
-//  UPDATES
+//  UPDATES - FULL SYSTEM
 // =========================================================
 var updateInfo=null;
-function vUpdates(){
+var updateDismissCount=0; // how many times user said "no"
+var autoUpdateTimer=null;
+var AUTO_UPDATE_FORCE_DAYS=7; // force after 7 days of ignoring
+
+// Show the big banner overlay
+function showUpdateBanner(){
+    if(!updateInfo)return;
     var ver=window._appVersion||'2.0';
-    return '<div class="stats-grid" style="grid-template-columns:1fr 1fr;">'+
-        '<div class="card"><h3 style="margin-bottom:14px;">Version Actual</h3>'+
-            '<div style="font-size:48px;font-weight:800;color:var(--pri);margin-bottom:10px;">v'+ver+'</div>'+
-            '<p style="color:var(--t2);">RestaurantApp - Sistema de Restaurante</p>'+
-            '<p style="color:var(--t2);margin-top:6px;">GitHub: joanrdr/RestaurantApp</p>'+
+    var daysSinceFound=0;
+    if(DB.updateFirstSeen){
+        daysSinceFound=Math.floor((Date.now()-new Date(DB.updateFirstSeen).getTime())/86400000);
+    }
+    var forceIn=AUTO_UPDATE_FORCE_DAYS-daysSinceFound;
+
+    $('update-box-content').innerHTML=
+        '<h2>&#8593; ACTUALIZACION DISPONIBLE</h2>'+
+        '<p style="color:var(--t2);font-size:16px;margin-bottom:6px;">Hay una nueva version de RestaurantApp</p>'+
+        '<div class="ver-compare">'+
+            '<span class="ver-old">v'+ver+'</span>'+
+            '<span class="ver-arrow">&#10132;</span>'+
+            '<span class="ver-new">v'+updateInfo.latest+'</span>'+
         '</div>'+
-        '<div class="card"><h3 style="margin-bottom:14px;">Buscar Actualizaciones</h3>'+
-            '<p style="color:var(--t2);margin-bottom:16px;">La app busca actualizaciones automaticamente al abrirse. Tambien puedes buscar manualmente.</p>'+
-            '<button class="btn btn-pri btn-lg btn-block" onclick="checkForUpdate()">BUSCAR ACTUALIZACION</button>'+
-            '<div id="update-status" style="margin-top:16px;"></div>'+
+        (updateInfo.notes?'<p style="color:var(--t2);font-size:14px;margin-bottom:20px;text-align:left;background:var(--s2);padding:14px;border-radius:10px;">'+updateInfo.notes+'</p>':'')+
+        '<div style="display:flex;flex-direction:column;gap:12px;">'+
+            '<button class="btn btn-green btn-lg btn-block" style="font-size:18px;padding:18px;" onclick="doUpdateNow()">ACTUALIZAR AHORA</button>'+
+            '<button class="btn btn-sec btn-lg btn-block" onclick="dismissUpdate()">MAS TARDE</button>'+
         '</div>'+
-    '</div>'+
-    (updateInfo?'<div class="card" style="margin-top:16px;border-color:var(--green);">'+
-        '<h3 style="color:var(--green);margin-bottom:14px;">Nueva Version Disponible: v'+updateInfo.latest+'</h3>'+
-        '<p style="margin-bottom:14px;">'+updateInfo.notes+'</p>'+
-        '<div style="display:flex;gap:12px;">'+
-            (updateInfo.download?'<button class="btn btn-green btn-lg" onclick="downloadUpdate()">DESCARGAR v'+updateInfo.latest+'</button>':'')+
-            '<button class="btn btn-sec btn-lg" onclick="openUpdatePage()">VER EN GITHUB</button>'+
-        '</div>'+
-    '</div>':'');
+        (forceIn>0?'<div class="update-timer">Si no actualizas, el sistema se actualizara automaticamente en '+forceIn+' dia'+(forceIn>1?'s':'')+'</div>':
+        '<div class="update-timer" style="color:var(--yellow);">El sistema se actualizara automaticamente hoy</div>');
+
+    $('update-overlay').classList.add('show');
 }
 
-function checkForUpdate(){
-    $('update-status').innerHTML='<p style="color:var(--yellow);">Buscando actualizaciones...</p>';
-    cppMsg({action:'checkUpdate'});
+function hideUpdateBanner(){
+    $('update-overlay').classList.remove('show');
 }
 
+function dismissUpdate(){
+    hideUpdateBanner();
+    updateDismissCount++;
+    DB.updateDismissed=new Date().toISOString();
+    DB.updateDismissCount=(DB.updateDismissCount||0)+1;
+    saveDB();
+    toast('Recordatorio: la actualizacion sigue pendiente','info');
+}
+
+function doUpdateNow(){
+    if(!updateInfo)return;
+    if(updateInfo.download){
+        toast('Descargando actualizacion...','info');
+        cppMsg({action:'downloadUpdate',url:updateInfo.download});
+        hideUpdateBanner();
+    }else{
+        openUpdatePage();
+        hideUpdateBanner();
+    }
+}
+
+// Check if we should force update (too many days ignored)
+function checkForceUpdate(){
+    if(!updateInfo||!DB.updateFirstSeen)return;
+    var daysSince=Math.floor((Date.now()-new Date(DB.updateFirstSeen).getTime())/86400000);
+    if(daysSince>=AUTO_UPDATE_FORCE_DAYS){
+        // Force download
+        toast('Actualizacion obligatoria - descargando...','info');
+        if(updateInfo.download){
+            cppMsg({action:'downloadUpdate',url:updateInfo.download});
+        }else{
+            showUpdateBanner();
+        }
+    }
+}
+
+// Header indicator
+function showHeaderUpdateIndicator(show){
+    var el=$('header-upd');
+    if(el){
+        if(show)el.classList.add('show');
+        else el.classList.remove('show');
+    }
+}
+
+// Called from C++ when update check completes
 function updateResult(data){
     updateInfo=null;
     if(data.status==='available'){
         updateInfo=data;
-        toast('Nueva version disponible: v'+data.latest,'info');
+        // Track when we first saw this update
+        if(!DB.updateFirstSeen||DB.updateLastVersion!==data.latest){
+            DB.updateFirstSeen=new Date().toISOString();
+            DB.updateLastVersion=data.latest;
+            DB.updateDismissCount=0;
+            saveDB();
+        }
+        // Show header indicator
+        showHeaderUpdateIndicator(true);
+        // Show the big banner in front
+        showUpdateBanner();
     }else if(data.status==='up_to_date'){
-        toast('Estas al dia! v'+data.current);
+        showHeaderUpdateIndicator(false);
+        // Clear any pending update info
+        DB.updateFirstSeen=null;DB.updateLastVersion=null;DB.updateDismissCount=0;saveDB();
+        if(data._manual)toast('Estas al dia! v'+data.current);
     }else if(data.status==='error'){
-        toast(data.msg||'Error buscando actualizaciones','err');
+        if(data._manual)toast(data.msg||'Error buscando actualizaciones','err');
     }else if(data.status==='no_releases'){
-        toast('No hay releases publicados aun','info');
+        if(data._manual)toast('No hay releases publicados','info');
     }
-    var el=$('update-status');
-    if(el){
-        if(data.status==='available')el.innerHTML='<p style="color:var(--green);font-weight:700;">Nueva version v'+data.latest+' disponible!</p>';
-        else if(data.status==='up_to_date')el.innerHTML='<p style="color:var(--green);">Estas al dia (v'+data.current+')</p>';
-        else if(data.status==='error')el.innerHTML='<p style="color:var(--red);">'+data.msg+'</p>';
-        else if(data.status==='no_releases')el.innerHTML='<p style="color:var(--t2);">No hay releases. Sube uno a GitHub con gh release create.</p>';
-    }
-    if(curSection==='admin'&&adminTab==='updates')render();
-}
-
-function downloadUpdate(){
-    if(!updateInfo||!updateInfo.download)return;
-    toast('Descargando actualizacion...','info');
-    cppMsg({action:'downloadUpdate',url:updateInfo.download});
+    // Update config section if visible
+    if(curSection==='config'||curSection==='admin')render();
 }
 
 function downloadResult(data){
-    if(data.status==='ok'){toast('Actualizacion descargada en: '+data.path);
+    if(data.status==='ok'){
+        toast('Actualizacion descargada! Revisa tu carpeta de Descargas');
+        showHeaderUpdateIndicator(false);
+        DB.updateFirstSeen=null;DB.updateDismissCount=0;saveDB();
     }else{toast('Error descargando','err');}
+}
+
+function checkForUpdate(){
+    cppMsg({action:'checkUpdate'});
 }
 
 function openUpdatePage(){
     if(updateInfo&&updateInfo.url)cppMsg({action:'openURL',url:updateInfo.url});
     else cppMsg({action:'openURL',url:'https://github.com/joanrdr/RestaurantApp/releases'});
 }
+
+// Admin panel - Updates tab
+function vUpdates(){
+    var ver=window._appVersion||'2.0';
+    var hasUpdate=!!updateInfo;
+    return '<div class="stats-grid" style="grid-template-columns:1fr 1fr;">'+
+        '<div class="card"><h3 style="margin-bottom:14px;">Version Actual</h3>'+
+            '<div style="font-size:48px;font-weight:800;color:var(--pri);margin-bottom:10px;">v'+ver+'</div>'+
+            '<p style="color:var(--t2);">RestaurantApp - Sistema de Restaurante</p>'+
+            '<p style="color:var(--t2);margin-top:6px;">GitHub: joanrdr/RestaurantApp</p>'+
+            (hasUpdate?'<div style="margin-top:14px;padding:12px;background:rgba(34,197,94,.1);border-radius:10px;color:var(--green);font-weight:700;">&#8593; v'+updateInfo.latest+' disponible</div>':
+            '<div style="margin-top:14px;padding:12px;background:rgba(34,197,94,.1);border-radius:10px;color:var(--green);">Al dia</div>')+
+        '</div>'+
+        '<div class="card"><h3 style="margin-bottom:14px;">Buscar Actualizaciones</h3>'+
+            '<p style="color:var(--t2);margin-bottom:16px;">Busca automaticamente al abrir la app. Tambien manual:</p>'+
+            '<button class="btn btn-pri btn-lg btn-block" onclick="checkForUpdate()">BUSCAR AHORA</button>'+
+            (hasUpdate?'<button class="btn btn-green btn-lg btn-block" style="margin-top:10px;" onclick="doUpdateNow()">DESCARGAR v'+updateInfo.latest+'</button>':'')+
+            '<div style="margin-top:14px;color:var(--t2);font-size:13px;">'+
+                '<p>Actualizacion automatica forzada: '+AUTO_UPDATE_FORCE_DAYS+' dias despues de disponible</p>'+
+                (DB.updateDismissCount>0?'<p style="color:var(--yellow);">Veces pospuesta: '+DB.updateDismissCount+'</p>':'')+
+            '</div>'+
+        '</div>'+
+    '</div>';
+}
+
+// Config section - add update info
+var _origVConfig=vConfig;
+vConfig=function(){
+    var ver=window._appVersion||'2.0';
+    var hasUpdate=!!updateInfo;
+    var updateCard='<div class="card" style="margin-bottom:16px;'+(hasUpdate?'border-color:var(--green);':'')+'">' +
+        '<h3 style="margin-bottom:14px;">Actualizaciones del Sistema</h3>'+
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">'+
+            '<div><span style="font-size:14px;color:var(--t2);">Version instalada:</span> <span style="font-size:20px;font-weight:800;color:var(--pri);">v'+ver+'</span></div>'+
+            (hasUpdate?'<div><span style="font-size:14px;color:var(--t2);">Disponible:</span> <span style="font-size:20px;font-weight:800;color:var(--green);">v'+updateInfo.latest+'</span></div>':
+            '<div><span class="badge b-green">AL DIA</span></div>')+
+        '</div>'+
+        (hasUpdate?'<button class="btn btn-green btn-lg btn-block" onclick="doUpdateNow()">ACTUALIZAR A v'+updateInfo.latest+'</button>':
+        '<button class="btn btn-sec btn-lg" onclick="checkForUpdate()">BUSCAR ACTUALIZACION</button>')+
+    '</div>';
+    return '<div style="max-width:550px;">'+updateCard+_origVConfig().replace('<div style="max-width:550px;">','');
+};
 
 // =========================================================
 //  INIT
@@ -1094,6 +1217,12 @@ updateClock();
 buildNav();
 render();
 checkAutoBackup();
+// Check force update on start if update was pending
+setTimeout(function(){
+    if(DB.updateFirstSeen&&DB.updateLastVersion){
+        checkForceUpdate();
+    }
+},3000);
 </script>
 </body>
 </html>
