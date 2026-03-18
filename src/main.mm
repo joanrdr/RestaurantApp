@@ -1,5 +1,6 @@
 #import <Cocoa/Cocoa.h>
 #import <WebKit/WebKit.h>
+#include <sys/stat.h>
 
 static NSString *APP_VERSION = @"2.0";
 static NSString *GITHUB_REPO = @"joanrdr/RestaurantApp";
@@ -190,7 +191,6 @@ static NSString* loadHTML() {
 - (void)downloadAndInstallUpdate:(NSString *)urlStr {
     NSURL *url = [NSURL URLWithString:urlStr];
 
-    // Notify JS that download started
     dispatch_async(dispatch_get_main_queue(), ^{
         [self notifyJS:@"downloadResult" data:@"{\"status\":\"downloading\"}"];
     });
@@ -206,111 +206,74 @@ static NSString* loadHTML() {
 
         NSFileManager *fm = [NSFileManager defaultManager];
 
-        // 1. Move zip to temp with proper extension
-        NSString *tmpZip = [NSTemporaryDirectory() stringByAppendingPathComponent:@"RestaurantApp_update.zip"];
+        // Move zip to a stable temp location
+        NSString *tmpZip = @"/tmp/RestaurantApp_update.zip";
         [fm removeItemAtPath:tmpZip error:nil];
-        [fm moveItemAtURL:tempFile toURL:[NSURL fileURLWithPath:tmpZip] error:nil];
-
-        // 2. Unzip to temp folder
-        NSString *tmpExtract = [NSTemporaryDirectory() stringByAppendingPathComponent:@"RestaurantApp_extract"];
-        [fm removeItemAtPath:tmpExtract error:nil];
-        [fm createDirectoryAtPath:tmpExtract withIntermediateDirectories:YES attributes:nil error:nil];
-
-        NSTask *unzip = [[NSTask alloc] init];
-        unzip.launchPath = @"/usr/bin/unzip";
-        unzip.arguments = @[@"-o", tmpZip, @"-d", tmpExtract];
-        unzip.standardOutput = [NSPipe pipe];
-        unzip.standardError = [NSPipe pipe];
-        [unzip launch];
-        [unzip waitUntilExit];
-
-        if (unzip.terminationStatus != 0) {
+        NSError *moveErr;
+        [fm copyItemAtURL:tempFile toURL:[NSURL fileURLWithPath:tmpZip] error:&moveErr];
+        if (moveErr) {
             dispatch_async(dispatch_get_main_queue(), ^{
-                [self notifyJS:@"downloadResult" data:@"{\"status\":\"error\",\"msg\":\"Error descomprimiendo\"}"];
+                [self notifyJS:@"downloadResult" data:@"{\"status\":\"error\",\"msg\":\"Error guardando archivo\"}"];
             });
             return;
         }
 
-        // 3. Find the .app inside extracted folder
-        NSString *newAppPath = nil;
-        NSArray *contents = [fm contentsOfDirectoryAtPath:tmpExtract error:nil];
-        for (NSString *item in contents) {
-            if ([item hasSuffix:@".app"]) {
-                newAppPath = [tmpExtract stringByAppendingPathComponent:item];
-                break;
-            }
-        }
-        // Also check one level deeper (in case zip has a folder)
-        if (!newAppPath) {
-            for (NSString *item in contents) {
-                NSString *subDir = [tmpExtract stringByAppendingPathComponent:item];
-                BOOL isDir;
-                if ([fm fileExistsAtPath:subDir isDirectory:&isDir] && isDir) {
-                    NSArray *sub = [fm contentsOfDirectoryAtPath:subDir error:nil];
-                    for (NSString *s in sub) {
-                        if ([s hasSuffix:@".app"]) {
-                            newAppPath = [subDir stringByAppendingPathComponent:s];
-                            break;
-                        }
-                    }
-                }
-                if (newAppPath) break;
-            }
-        }
-
-        if (!newAppPath) {
-            dispatch_async(dispatch_get_main_queue(), ^{
-                [self notifyJS:@"downloadResult" data:@"{\"status\":\"error\",\"msg\":\"No se encontro la app en el zip\"}"];
-            });
-            return;
-        }
-
-        // 4. Get current app path
+        // Get current app path before we quit
         NSString *currentApp = [[NSBundle mainBundle] bundlePath];
+        pid_t myPID = [[NSProcessInfo processInfo] processIdentifier];
 
-        // 5. Create updater script that will:
-        //    - Wait for this app to quit
-        //    - Replace old app with new app
-        //    - Launch the new app
+        // Write the updater script to /tmp (persists after app quits)
+        NSString *scriptPath = @"/tmp/restaurant_updater.sh";
         NSString *script = [NSString stringWithFormat:
             @"#!/bin/bash\n"
-            "sleep 1\n"
-            "while kill -0 %d 2>/dev/null; do sleep 0.5; done\n"
-            "rm -rf \"%@\"\n"
-            "cp -R \"%@\" \"%@\"\n"
-            "xattr -cr \"%@\" 2>/dev/null\n"
-            "open \"%@\"\n"
-            "rm -rf \"%@\"\n"
-            "rm -f \"%@\"\n"
-            "rm -f \"$0\"\n",
-            [[NSProcessInfo processInfo] processIdentifier],
-            currentApp,
-            newAppPath, currentApp,
-            currentApp,
-            currentApp,
-            tmpExtract,
-            tmpZip];
+            @"# Wait for the app to fully quit\n"
+            @"sleep 2\n"
+            @"while kill -0 %d 2>/dev/null; do sleep 1; done\n"
+            @"sleep 1\n"
+            @"\n"
+            @"# Extract\n"
+            @"rm -rf /tmp/RestaurantApp_extract\n"
+            @"mkdir -p /tmp/RestaurantApp_extract\n"
+            @"/usr/bin/unzip -o /tmp/RestaurantApp_update.zip -d /tmp/RestaurantApp_extract > /dev/null 2>&1\n"
+            @"\n"
+            @"# Find .app\n"
+            @"NEW_APP=$(find /tmp/RestaurantApp_extract -maxdepth 2 -name '*.app' -type d | head -1)\n"
+            @"if [ -z \"$NEW_APP\" ]; then\n"
+            @"    exit 1\n"
+            @"fi\n"
+            @"\n"
+            @"# Replace\n"
+            @"rm -rf \"%@\"\n"
+            @"cp -R \"$NEW_APP\" \"%@\"\n"
+            @"xattr -cr \"%@\" 2>/dev/null\n"
+            @"\n"
+            @"# Launch new app\n"
+            @"open \"%@\"\n"
+            @"\n"
+            @"# Cleanup\n"
+            @"rm -rf /tmp/RestaurantApp_extract\n"
+            @"rm -f /tmp/RestaurantApp_update.zip\n"
+            @"rm -f /tmp/restaurant_updater.sh\n",
+            myPID,
+            currentApp, currentApp, currentApp, currentApp];
 
-        NSString *scriptPath = [NSTemporaryDirectory() stringByAppendingPathComponent:@"restaurant_updater.sh"];
         [script writeToFile:scriptPath atomically:YES encoding:NSUTF8StringEncoding error:nil];
-
-        // Make executable
-        NSDictionary *attrs = @{NSFilePosixPermissions: @0755};
-        [fm setAttributes:attrs ofItemAtPath:scriptPath error:nil];
+        chmod("/tmp/restaurant_updater.sh", 0755);
 
         dispatch_async(dispatch_get_main_queue(), ^{
-            // 6. Launch the updater script
-            NSTask *updater = [[NSTask alloc] init];
-            updater.launchPath = @"/bin/bash";
-            updater.arguments = @[scriptPath];
-            [updater launch];
-
-            // 7. Notify and quit
             [self notifyJS:@"downloadResult" data:@"{\"status\":\"installing\"}"];
 
-            // Give JS a moment to show the message, then quit
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-                [NSApp terminate:nil];
+            // Launch updater as a fully detached process using /usr/bin/open
+            // This ensures it survives after our app quits
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+
+                // Use system() to launch detached - this spawns a shell that outlives us
+                system("/bin/bash /tmp/restaurant_updater.sh &");
+
+                // Quit after a moment
+                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                    [NSApp terminate:nil];
+                });
             });
         });
     }] resume];
