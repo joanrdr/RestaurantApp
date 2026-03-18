@@ -1,0 +1,1027 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>RestaurantApp</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{--bg:#0f1117;--surface:#1a1d27;--s2:#232736;--pri:#ff6b35;--pri2:#ff8555;--pril:rgba(255,107,53,0.12);--green:#22c55e;--red:#ef4444;--yellow:#eab308;--blue:#3b82f6;--purple:#a855f7;--text:#f1f5f9;--t2:#94a3b8;--border:#2d3148;--rad:14px;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);height:100vh;overflow:hidden;font-size:15px;}
+.app{display:flex;height:100vh;}
+.sidebar{width:230px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto;}
+.sidebar-logo{padding:18px 20px;font-size:20px;font-weight:800;color:var(--pri);border-bottom:1px solid var(--border);cursor:default;user-select:none;}
+.sidebar-logo span{color:var(--text);}
+.nav-item{padding:13px 20px;cursor:pointer;display:flex;align-items:center;gap:12px;font-size:15px;font-weight:500;color:var(--t2);transition:all .15s;border-left:4px solid transparent;user-select:none;}
+.nav-item:hover{background:var(--s2);color:var(--text);}
+.nav-item.active{background:var(--pril);color:var(--pri);border-left-color:var(--pri);font-weight:600;}
+.nav-icon{font-size:18px;width:24px;text-align:center;}
+.nav-sep{height:1px;background:var(--border);margin:6px 16px;}
+.nav-badge{margin-left:auto;background:var(--red);color:#fff;font-size:11px;font-weight:700;padding:2px 7px;border-radius:10px;min-width:20px;text-align:center;}
+.sidebar-footer{margin-top:auto;padding:14px 20px;border-top:1px solid var(--border);font-size:11px;color:var(--t2);user-select:none;cursor:pointer;}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;}
+.header{padding:16px 24px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;}
+.header h1{font-size:22px;font-weight:700;}
+.notif-bar{display:flex;gap:8px;flex-wrap:wrap;padding:0 24px;background:var(--surface);}
+.notif-pill{padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;cursor:pointer;}
+.notif-pill.warn{background:rgba(234,179,8,0.12);color:var(--yellow);}
+.notif-pill.danger{background:rgba(239,68,68,0.12);color:var(--red);}
+.content{flex:1;padding:20px 24px;overflow-y:auto;}
+.btn{padding:12px 22px;border:none;border-radius:10px;cursor:pointer;font-size:15px;font-weight:600;transition:all .15s;display:inline-flex;align-items:center;gap:8px;user-select:none;}
+.btn:active{transform:scale(.97);}
+.btn-pri{background:var(--pri);color:#fff;}.btn-pri:hover{background:var(--pri2);}
+.btn-green{background:var(--green);color:#fff;}.btn-green:hover{opacity:.9;}
+.btn-red{background:var(--red);color:#fff;}.btn-red:hover{opacity:.9;}
+.btn-sec{background:var(--s2);color:var(--text);border:1px solid var(--border);}.btn-sec:hover{background:var(--border);}
+.btn-purple{background:var(--purple);color:#fff;}.btn-purple:hover{opacity:.9;}
+.btn-sm{padding:8px 16px;font-size:13px;}
+.btn-lg{padding:14px 28px;font-size:16px;}
+.btn-block{width:100%;justify-content:center;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rad);padding:22px;}
+.stat-card .label{font-size:13px;color:var(--t2);margin-bottom:8px;font-weight:500;}
+.stat-card .value{font-size:32px;font-weight:800;}
+.stat-card .sub{font-size:12px;color:var(--t2);margin-top:4px;}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:20px;}
+.table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--rad);overflow:hidden;}
+table{width:100%;border-collapse:collapse;}
+th{padding:12px 16px;text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--t2);background:var(--s2);}
+td{padding:12px 16px;font-size:14px;border-bottom:1px solid var(--border);}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:rgba(255,255,255,.02);}
+.badge{padding:5px 12px;border-radius:20px;font-size:12px;font-weight:700;display:inline-block;}
+.b-green{background:rgba(34,197,94,.15);color:var(--green);}
+.b-red{background:rgba(239,68,68,.15);color:var(--red);}
+.b-yellow{background:rgba(234,179,8,.15);color:var(--yellow);}
+.b-blue{background:rgba(59,130,246,.15);color:var(--blue);}
+.b-purple{background:rgba(168,85,247,.15);color:var(--purple);}
+.mesas-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px;}
+.mesa-card{background:var(--surface);border:3px solid var(--border);border-radius:16px;padding:24px 18px;text-align:center;cursor:pointer;transition:all .2s;user-select:none;}
+.mesa-card:hover{transform:translateY(-3px);box-shadow:0 8px 24px rgba(0,0,0,.3);}
+.mesa-card.libre{border-color:var(--green);}.mesa-card.ocupada{border-color:var(--red);}.mesa-card.cuenta{border-color:var(--yellow);}
+.mesa-num{font-size:38px;font-weight:800;margin-bottom:4px;}
+.mesa-card.libre .mesa-num{color:var(--green);}.mesa-card.ocupada .mesa-num{color:var(--red);}.mesa-card.cuenta .mesa-num{color:var(--yellow);}
+.mesa-status{font-size:13px;color:var(--t2);text-transform:uppercase;letter-spacing:1px;font-weight:600;}
+.mesa-total{font-size:18px;font-weight:700;margin-top:8px;color:var(--pri);}
+.modal-bg{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.75);z-index:1000;justify-content:center;align-items:center;}
+.modal-bg.open{display:flex;}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;width:94%;max-width:800px;max-height:88vh;overflow-y:auto;}
+.modal h2{margin-bottom:18px;font-size:20px;font-weight:700;}
+.modal-foot{display:flex;gap:10px;justify-content:flex-end;margin-top:20px;padding-top:14px;border-top:1px solid var(--border);}
+.fg{margin-bottom:14px;}
+.fg label{display:block;margin-bottom:6px;font-size:14px;font-weight:600;color:var(--t2);}
+.fg input,.fg select,.fg textarea{width:100%;padding:12px 14px;background:var(--bg);border:2px solid var(--border);border-radius:10px;color:var(--text);font-size:15px;outline:none;transition:border-color .15s;}
+.fg input:focus,.fg select:focus{border-color:var(--pri);}
+.fg input::placeholder{color:#555;}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.form-row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
+.menu-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px;}
+.menu-item{background:var(--s2);border:2px solid var(--border);border-radius:12px;padding:16px;cursor:pointer;transition:all .15s;text-align:center;user-select:none;}
+.menu-item:hover{border-color:var(--pri);background:var(--pril);}
+.menu-item-name{font-weight:700;font-size:14px;margin-bottom:3px;}
+.menu-item-cat{font-size:11px;color:var(--t2);}
+.menu-item-price{font-size:20px;font-weight:800;color:var(--pri);margin-top:6px;}
+.cat-tabs{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;}
+.cat-tab{padding:8px 18px;border-radius:25px;background:var(--s2);color:var(--t2);cursor:pointer;font-size:14px;font-weight:600;border:2px solid var(--border);transition:all .15s;user-select:none;}
+.cat-tab:hover{color:var(--text);border-color:var(--t2);}
+.cat-tab.active{background:var(--pri);color:#fff;border-color:var(--pri);}
+.ped-item{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border);}
+.ped-item:last-child{border-bottom:none;}
+.ped-name{font-weight:600;font-size:15px;}
+.ped-actions{display:flex;align-items:center;gap:8px;}
+.qty-btn{width:34px;height:34px;border:2px solid var(--border);background:var(--s2);color:var(--text);border-radius:8px;cursor:pointer;font-size:18px;font-weight:700;display:flex;align-items:center;justify-content:center;}
+.qty-btn:hover{border-color:var(--pri);color:var(--pri);}
+.ped-qty{font-size:17px;font-weight:700;min-width:26px;text-align:center;}
+.ped-price{color:var(--pri);font-weight:700;font-size:16px;min-width:75px;text-align:right;}
+.cocina-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;}
+.cocina-card{background:var(--surface);border:3px solid var(--yellow);border-radius:16px;padding:18px;}
+.cocina-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border);}
+.cocina-mesa{font-size:22px;font-weight:800;color:var(--pri);}
+.cocina-time{font-size:13px;color:var(--yellow);font-weight:600;}
+.cocina-item{padding:6px 0;font-size:15px;display:flex;gap:8px;}
+.cocina-qty{color:var(--pri);font-weight:800;}
+.receipt{background:#fff;color:#000;padding:24px;max-width:380px;margin:0 auto;font-family:'Courier New',monospace;font-size:13px;border-radius:8px;}
+.receipt-head{text-align:center;margin-bottom:14px;border-bottom:2px dashed #000;padding-bottom:14px;}
+.receipt-head h3{font-size:18px;margin:0 0 4px;}
+.receipt-head p{margin:2px 0;}
+.receipt-line{display:flex;justify-content:space-between;padding:3px 0;}
+.receipt-total{border-top:2px dashed #000;margin-top:10px;padding-top:10px;font-weight:bold;font-size:16px;}
+.receipt-foot{text-align:center;margin-top:14px;border-top:2px dashed #000;padding-top:14px;}
+.toast{position:fixed;top:20px;right:20px;padding:14px 22px;border-radius:12px;font-size:14px;font-weight:600;z-index:2000;animation:slideIn .3s ease;max-width:400px;}
+.toast-ok{background:var(--green);color:#fff;}
+.toast-err{background:var(--red);color:#fff;}
+.toast-info{background:var(--blue);color:#fff;}
+@keyframes slideIn{from{transform:translateX(100px);opacity:0;}to{transform:translateX(0);opacity:1;}}
+.empty{text-align:center;padding:50px 20px;color:var(--t2);}
+.empty-icon{font-size:42px;margin-bottom:12px;}
+.empty-text{font-size:17px;}
+.tab-bar{display:flex;gap:0;margin-bottom:20px;border-bottom:2px solid var(--border);}
+.tab-btn{padding:12px 24px;cursor:pointer;font-size:15px;font-weight:600;color:var(--t2);border-bottom:3px solid transparent;margin-bottom:-2px;transition:all .15s;user-select:none;}
+.tab-btn:hover{color:var(--text);}
+.tab-btn.active{color:var(--pri);border-bottom-color:var(--pri);}
+.fin-row{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border);}
+.fin-row:last-child{border-bottom:none;}
+.progress-bar{height:8px;background:var(--s2);border-radius:4px;overflow:hidden;margin-top:6px;}
+.progress-fill{height:100%;border-radius:4px;transition:width .3s;}
+::-webkit-scrollbar{width:7px;}::-webkit-scrollbar-track{background:var(--bg);}::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
+@media print{body{background:#fff;}.sidebar,.header,.notif-bar{display:none!important;}.main{width:100%;}.content{padding:0;}}
+</style>
+</head>
+<body>
+<div class="app">
+<div class="sidebar">
+    <div class="sidebar-logo" id="logo">Restaurant<span>App</span></div>
+    <div id="nav"></div>
+    <div class="sidebar-footer" id="sfooter">
+        <div id="save-status" style="color:var(--green);margin-bottom:3px;">Listo</div>
+        RestaurantApp v2.0
+    </div>
+</div>
+<div class="main">
+    <div class="header">
+        <h1 id="page-title">Dashboard</h1>
+        <div style="display:flex;align-items:center;gap:14px;">
+            <span id="clock" style="color:var(--t2);font-size:14px;font-weight:500;"></span>
+        </div>
+    </div>
+    <div id="notif-area" class="notif-bar"></div>
+    <div class="content" id="content"></div>
+</div>
+</div>
+<div class="modal-bg" id="modal"><div class="modal" id="modal-body"></div></div>
+<script>
+// =========================================================
+//  DB
+// =========================================================
+var DB=null;
+function defaultDB(){return{
+    restaurant:{name:'Mi Restaurante',address:'Calle Principal #123',phone:'809-000-0000',currency:'$',tax:0},
+    mesas:Array.from({length:12},function(_,i){return{id:i+1,status:'libre',pedido:null};}),
+    categorias:['Entradas','Sopas','Ensaladas','Pollo','Carnes','Mariscos','Pastas','Pizzas','Sandwiches','Comida Rapida','Platos del Dia','Acompanantes','Bebidas Frias','Bebidas Calientes','Cocteles','Cervezas','Postres','Para Ninos','Extras'],
+    menu:[
+        {id:1,name:'Nachos con Queso',cat:'Entradas',price:8.99,active:true},
+        {id:2,name:'Alitas BBQ (10)',cat:'Entradas',price:12.99,active:true},
+        {id:3,name:'Alitas Buffalo (10)',cat:'Entradas',price:12.99,active:true},
+        {id:4,name:'Tostones con Ajo',cat:'Entradas',price:6.99,active:true},
+        {id:5,name:'Empanadas (3)',cat:'Entradas',price:7.50,active:true},
+        {id:6,name:'Tequeños (6)',cat:'Entradas',price:8.50,active:true},
+        {id:7,name:'Papas Fritas',cat:'Entradas',price:5.99,active:true},
+        {id:8,name:'Aros de Cebolla',cat:'Entradas',price:6.99,active:true},
+        {id:9,name:'Queso Fundido',cat:'Entradas',price:9.99,active:true},
+        {id:10,name:'Bruschettas (4)',cat:'Entradas',price:8.99,active:true},
+        {id:11,name:'Sopa del Dia',cat:'Sopas',price:6.50,active:true},
+        {id:12,name:'Sopa de Pollo',cat:'Sopas',price:7.99,active:true},
+        {id:13,name:'Crema de Tomate',cat:'Sopas',price:6.99,active:true},
+        {id:14,name:'Sancocho',cat:'Sopas',price:12.99,active:true},
+        {id:15,name:'Sopa de Mariscos',cat:'Sopas',price:14.99,active:true},
+        {id:16,name:'Ensalada Caesar',cat:'Ensaladas',price:9.99,active:true},
+        {id:17,name:'Ensalada Mixta',cat:'Ensaladas',price:7.99,active:true},
+        {id:18,name:'Ensalada Tropical',cat:'Ensaladas',price:10.99,active:true},
+        {id:19,name:'Ensalada de Pollo',cat:'Ensaladas',price:11.99,active:true},
+        {id:20,name:'Pollo a la Parrilla',cat:'Pollo',price:14.99,active:true},
+        {id:21,name:'Pollo Frito',cat:'Pollo',price:12.99,active:true},
+        {id:22,name:'Pollo al Horno',cat:'Pollo',price:14.99,active:true},
+        {id:23,name:'Pollo en Salsa BBQ',cat:'Pollo',price:15.99,active:true},
+        {id:24,name:'Pechuga Rellena',cat:'Pollo',price:16.99,active:true},
+        {id:25,name:'Pollo Cordon Bleu',cat:'Pollo',price:17.99,active:true},
+        {id:26,name:'Filete de Res',cat:'Carnes',price:24.99,active:true},
+        {id:27,name:'Churrasco',cat:'Carnes',price:22.99,active:true},
+        {id:28,name:'Costillas BBQ',cat:'Carnes',price:21.99,active:true},
+        {id:29,name:'Bistec Encebollado',cat:'Carnes',price:16.99,active:true},
+        {id:30,name:'Chuleta de Cerdo',cat:'Carnes',price:15.99,active:true},
+        {id:31,name:'Carne Asada',cat:'Carnes',price:18.99,active:true},
+        {id:32,name:'T-Bone Steak',cat:'Carnes',price:28.99,active:true},
+        {id:33,name:'Lomo de Cerdo',cat:'Carnes',price:17.99,active:true},
+        {id:34,name:'Salmon a la Parrilla',cat:'Mariscos',price:22.50,active:true},
+        {id:35,name:'Camarones al Ajillo',cat:'Mariscos',price:19.99,active:true},
+        {id:36,name:'Filete de Pescado',cat:'Mariscos',price:16.99,active:true},
+        {id:37,name:'Langosta',cat:'Mariscos',price:34.99,active:true},
+        {id:38,name:'Pulpo a la Gallega',cat:'Mariscos',price:23.99,active:true},
+        {id:39,name:'Ceviche',cat:'Mariscos',price:14.99,active:true},
+        {id:40,name:'Arroz con Mariscos',cat:'Mariscos',price:18.99,active:true},
+        {id:41,name:'Camarones Empanizados',cat:'Mariscos',price:17.99,active:true},
+        {id:42,name:'Spaghetti Bolognese',cat:'Pastas',price:13.99,active:true},
+        {id:43,name:'Fettuccine Alfredo',cat:'Pastas',price:14.99,active:true},
+        {id:44,name:'Lasagna',cat:'Pastas',price:15.99,active:true},
+        {id:45,name:'Penne con Pollo',cat:'Pastas',price:14.99,active:true},
+        {id:46,name:'Pasta Carbonara',cat:'Pastas',price:14.99,active:true},
+        {id:47,name:'Ravioles',cat:'Pastas',price:15.99,active:true},
+        {id:48,name:'Pizza Margarita',cat:'Pizzas',price:12.99,active:true},
+        {id:49,name:'Pizza Pepperoni',cat:'Pizzas',price:14.99,active:true},
+        {id:50,name:'Pizza Hawaiana',cat:'Pizzas',price:14.99,active:true},
+        {id:51,name:'Pizza 4 Quesos',cat:'Pizzas',price:15.99,active:true},
+        {id:52,name:'Pizza Suprema',cat:'Pizzas',price:17.99,active:true},
+        {id:53,name:'Pizza BBQ Chicken',cat:'Pizzas',price:16.99,active:true},
+        {id:54,name:'Club Sandwich',cat:'Sandwiches',price:10.99,active:true},
+        {id:55,name:'Sandwich de Pollo',cat:'Sandwiches',price:9.99,active:true},
+        {id:56,name:'BLT',cat:'Sandwiches',price:9.99,active:true},
+        {id:57,name:'Wrap de Pollo',cat:'Sandwiches',price:10.99,active:true},
+        {id:58,name:'Panini Italiano',cat:'Sandwiches',price:11.99,active:true},
+        {id:59,name:'Hamburguesa Clasica',cat:'Comida Rapida',price:11.99,active:true},
+        {id:60,name:'Hamburguesa Doble',cat:'Comida Rapida',price:14.99,active:true},
+        {id:61,name:'Hamburguesa BBQ',cat:'Comida Rapida',price:13.99,active:true},
+        {id:62,name:'Hot Dog',cat:'Comida Rapida',price:7.99,active:true},
+        {id:63,name:'Tacos (3 pzas)',cat:'Comida Rapida',price:11.50,active:true},
+        {id:64,name:'Burritos',cat:'Comida Rapida',price:12.99,active:true},
+        {id:65,name:'Quesadilla',cat:'Comida Rapida',price:9.99,active:true},
+        {id:66,name:'Plato del Dia #1',cat:'Platos del Dia',price:10.99,active:true},
+        {id:67,name:'Plato del Dia #2',cat:'Platos del Dia',price:12.99,active:true},
+        {id:68,name:'Plato Ejecutivo',cat:'Platos del Dia',price:9.99,active:true},
+        {id:69,name:'Arroz Blanco',cat:'Acompanantes',price:3.00,active:true},
+        {id:70,name:'Arroz con Habichuelas',cat:'Acompanantes',price:4.50,active:true},
+        {id:71,name:'Platano Maduro',cat:'Acompanantes',price:3.50,active:true},
+        {id:72,name:'Ensalada Verde',cat:'Acompanantes',price:4.00,active:true},
+        {id:73,name:'Pure de Papas',cat:'Acompanantes',price:4.00,active:true},
+        {id:74,name:'Vegetales al Vapor',cat:'Acompanantes',price:4.50,active:true},
+        {id:75,name:'Yuca Frita',cat:'Acompanantes',price:4.99,active:true},
+        {id:76,name:'Agua',cat:'Bebidas Frias',price:2.00,active:true},
+        {id:77,name:'Agua con Gas',cat:'Bebidas Frias',price:2.50,active:true},
+        {id:78,name:'Refresco',cat:'Bebidas Frias',price:3.00,active:true},
+        {id:79,name:'Jugo de Naranja',cat:'Bebidas Frias',price:4.50,active:true},
+        {id:80,name:'Jugo de Chinola',cat:'Bebidas Frias',price:4.50,active:true},
+        {id:81,name:'Limonada',cat:'Bebidas Frias',price:3.99,active:true},
+        {id:82,name:'Batido de Frutas',cat:'Bebidas Frias',price:5.99,active:true},
+        {id:83,name:'Te Helado',cat:'Bebidas Frias',price:3.50,active:true},
+        {id:84,name:'Cafe Negro',cat:'Bebidas Calientes',price:2.50,active:true},
+        {id:85,name:'Cafe con Leche',cat:'Bebidas Calientes',price:3.50,active:true},
+        {id:86,name:'Cappuccino',cat:'Bebidas Calientes',price:4.50,active:true},
+        {id:87,name:'Te Caliente',cat:'Bebidas Calientes',price:3.00,active:true},
+        {id:88,name:'Chocolate Caliente',cat:'Bebidas Calientes',price:4.50,active:true},
+        {id:89,name:'Margarita',cat:'Cocteles',price:8.99,active:true},
+        {id:90,name:'Pina Colada',cat:'Cocteles',price:9.99,active:true},
+        {id:91,name:'Mojito',cat:'Cocteles',price:8.99,active:true},
+        {id:92,name:'Daiquiri',cat:'Cocteles',price:8.99,active:true},
+        {id:93,name:'Cuba Libre',cat:'Cocteles',price:7.99,active:true},
+        {id:94,name:'Cerveza Nacional',cat:'Cervezas',price:4.00,active:true},
+        {id:95,name:'Cerveza Importada',cat:'Cervezas',price:6.00,active:true},
+        {id:96,name:'Cerveza Artesanal',cat:'Cervezas',price:7.99,active:true},
+        {id:97,name:'Flan de Vainilla',cat:'Postres',price:6.50,active:true},
+        {id:98,name:'Pastel de Chocolate',cat:'Postres',price:7.99,active:true},
+        {id:99,name:'Cheesecake',cat:'Postres',price:7.99,active:true},
+        {id:100,name:'Helado (2 bolas)',cat:'Postres',price:5.50,active:true},
+        {id:101,name:'Brownie con Helado',cat:'Postres',price:8.99,active:true},
+        {id:102,name:'Tiramisu',cat:'Postres',price:8.99,active:true},
+        {id:103,name:'Tres Leches',cat:'Postres',price:7.50,active:true},
+        {id:104,name:'Churros (6)',cat:'Postres',price:6.99,active:true},
+        {id:105,name:'Mini Hamburguesa',cat:'Para Ninos',price:7.99,active:true},
+        {id:106,name:'Nuggets de Pollo',cat:'Para Ninos',price:6.99,active:true},
+        {id:107,name:'Mac & Cheese',cat:'Para Ninos',price:6.99,active:true},
+        {id:108,name:'Mini Pizza',cat:'Para Ninos',price:7.99,active:true},
+        {id:109,name:'Deditos de Pescado',cat:'Para Ninos',price:7.99,active:true},
+        {id:110,name:'Pan Extra',cat:'Extras',price:2.00,active:true},
+        {id:111,name:'Guacamole',cat:'Extras',price:4.99,active:true},
+        {id:112,name:'Salsa Extra',cat:'Extras',price:1.50,active:true},
+        {id:113,name:'Queso Extra',cat:'Extras',price:2.50,active:true},
+        {id:114,name:'Tocineta Extra',cat:'Extras',price:3.00,active:true}
+    ],
+    pedidos:[],nextPedido:1,nextMenu:115,
+    // INVENTARIO
+    inventario:[],nextInv:1,
+    invCategorias:['Carnes','Pollo','Mariscos','Vegetales','Frutas','Lacteos','Granos','Bebidas','Licores','Condimentos','Pan/Harina','Limpieza','Desechables','Otros'],
+    // GASTOS
+    gastos:[],nextGasto:1,
+    gastoCategorias:['Ingredientes','Bebidas','Alquiler','Electricidad','Agua','Gas','Nomina','Mantenimiento','Limpieza','Marketing','Seguros','Impuestos','Desechables','Otros'],
+    // AUDIT
+    audit:[],
+    // BACKUP CONFIG
+    backupConfig:{enabled:false,frequency:'daily',lastBackup:null},
+    // ADMIN UNLOCKED
+    adminUnlocked:false
+};}
+
+// =========================================================
+//  PERSISTENCE
+// =========================================================
+function cppMsg(obj){try{window.webkit.messageHandlers.cpp.postMessage(JSON.stringify(obj));}catch(e){}}
+function saveDB(){
+    cppMsg({action:'save',data:DB});
+    try{localStorage.setItem('rapp',JSON.stringify(DB));}catch(e){}
+    var el=document.getElementById('save-status');
+    if(el)el.textContent='Guardado '+new Date().toLocaleTimeString('es');
+}
+function loadFromNative(s){try{var d=JSON.parse(s);if(d&&d.restaurant){DB=d;ensureFields();render();buildNav();checkNotifs();toast('Datos cargados');}}catch(e){}}
+function restoreFromBackup(s){try{var d=JSON.parse(s);if(d&&d.restaurant){DB=d;ensureFields();saveDB();render();buildNav();checkNotifs();toast('Backup restaurado correctamente');}}catch(e){toast('Error restaurando','err');}}
+function backupDone(f){toast('Backup guardado: '+f,'info');}
+function exportDone(f){toast('Archivo exportado a Descargas: '+f,'info');}
+function receiveBackupList(list){window._backupList=list;if(typeof renderBackupList==='function')renderBackupList();}
+
+function ensureFields(){
+    if(!DB.inventario)DB.inventario=[];
+    if(!DB.nextInv)DB.nextInv=1;
+    if(!DB.invCategorias)DB.invCategorias=['Carnes','Pollo','Mariscos','Vegetales','Frutas','Lacteos','Granos','Bebidas','Licores','Condimentos','Pan/Harina','Limpieza','Desechables','Otros'];
+    if(!DB.gastos)DB.gastos=[];
+    if(!DB.nextGasto)DB.nextGasto=1;
+    if(!DB.gastoCategorias)DB.gastoCategorias=['Ingredientes','Bebidas','Alquiler','Electricidad','Agua','Gas','Nomina','Mantenimiento','Limpieza','Marketing','Seguros','Impuestos','Desechables','Otros'];
+    if(!DB.audit)DB.audit=[];
+    if(!DB.backupConfig)DB.backupConfig={enabled:false,frequency:'daily',lastBackup:null};
+    if(!DB.nextPedido)DB.nextPedido=DB.pedidos.length>0?Math.max.apply(null,DB.pedidos.map(function(p){return p.id;}))+1:1;
+    if(!DB.nextMenu)DB.nextMenu=DB.menu.length>0?Math.max.apply(null,DB.menu.map(function(m){return m.id;}))+1:1;
+}
+
+function initDB(){
+    try{var s=localStorage.getItem('rapp');if(s){var d=JSON.parse(s);if(d&&d.restaurant){DB=d;ensureFields();return;}}}catch(e){}
+    DB=defaultDB();saveDB();
+}
+
+// =========================================================
+//  AUDIT LOG
+// =========================================================
+function auditLog(action,detail){
+    DB.audit.push({date:new Date().toISOString(),action:action,detail:detail});
+    if(DB.audit.length>5000)DB.audit=DB.audit.slice(-5000);
+}
+
+// =========================================================
+//  NOTIFICATIONS
+// =========================================================
+function getAlerts(){
+    var alerts=[];
+    var today=new Date();
+    // Low stock
+    DB.inventario.forEach(function(p){
+        if(p.qty<=p.minStock&&p.minStock>0){
+            alerts.push({type:'danger',text:p.name+': STOCK BAJO ('+p.qty+' '+p.unit+' - minimo: '+p.minStock+')',section:'inventario'});
+        }
+    });
+    // Expiring soon (7 days)
+    DB.inventario.forEach(function(p){
+        if(p.expDate){
+            var exp=new Date(p.expDate);
+            var diff=Math.ceil((exp-today)/(1000*60*60*24));
+            if(diff<0)alerts.push({type:'danger',text:p.name+': EXPIRADO hace '+Math.abs(diff)+' dias!',section:'inventario'});
+            else if(diff<=7)alerts.push({type:'warn',text:p.name+': Expira en '+diff+' dias ('+p.expDate+')',section:'inventario'});
+        }
+    });
+    return alerts;
+}
+
+function checkNotifs(){
+    var alerts=getAlerts();
+    var area=document.getElementById('notif-area');
+    if(!area)return;
+    if(alerts.length===0){area.innerHTML='';area.style.padding='0';return;}
+    area.style.padding='10px 24px';
+    area.innerHTML=alerts.map(function(a){
+        return '<div class="notif-pill '+a.type+'" onclick="go(\''+a.section+'\')">&#9888; '+a.text+'</div>';
+    }).join('');
+}
+
+// =========================================================
+//  AUTO BACKUP
+// =========================================================
+function checkAutoBackup(){
+    if(!DB.backupConfig.enabled)return;
+    var now=Date.now();
+    var last=DB.backupConfig.lastBackup?new Date(DB.backupConfig.lastBackup).getTime():0;
+    var freq=DB.backupConfig.frequency;
+    var interval={'daily':86400000,'weekly':604800000,'monthly':2592000000,'yearly':31536000000};
+    var ms=interval[freq]||86400000;
+    if(now-last>=ms){
+        cppMsg({action:'backup',label:'auto_'+freq,data:DB});
+        DB.backupConfig.lastBackup=new Date().toISOString();
+        auditLog('backup_auto','Backup automatico '+freq);
+        saveDB();
+    }
+}
+setInterval(checkAutoBackup,60000);
+
+// =========================================================
+//  UTILS
+// =========================================================
+function $(id){return document.getElementById(id);}
+function fmt(n){return(DB.restaurant.currency||'$')+n.toFixed(2);}
+function isToday(d){return d&&new Date(d).toDateString()===new Date().toDateString();}
+function isThisWeek(d){if(!d)return false;var n=new Date(),s=new Date(d);var day=n.getDay()||7;var mon=new Date(n);mon.setDate(n.getDate()-(day-1));mon.setHours(0,0,0,0);return s>=mon;}
+function isThisMonth(d){if(!d)return false;var n=new Date(),s=new Date(d);return s.getMonth()===n.getMonth()&&s.getFullYear()===n.getFullYear();}
+function isThisYear(d){if(!d)return false;return new Date(d).getFullYear()===new Date().getFullYear();}
+function timeAgo(d){var m=Math.floor((Date.now()-new Date(d).getTime())/60000);return m<1?'Ahora':m<60?m+' min':''+Math.floor(m/60)+'h '+m%60+'m';}
+function pedTotal(p){return p.items.reduce(function(s,i){return s+i.price*i.qty;},0);}
+function toast(m,t){var e=document.createElement('div');e.className='toast '+(t==='err'?'toast-err':t==='info'?'toast-info':'toast-ok');e.textContent=m;document.body.appendChild(e);setTimeout(function(){e.remove();},2500);}
+function openModal(h){$('modal-body').innerHTML=h;$('modal').classList.add('open');}
+function closeModal(){$('modal').classList.remove('open');}
+$('modal').onclick=function(e){if(e.target===this)closeModal();};
+function updateClock(){var n=new Date();$('clock').textContent=n.toLocaleDateString('es',{weekday:'short',day:'numeric',month:'short'})+' '+n.toLocaleTimeString('es');}
+setInterval(updateClock,1000);
+function nativePrint(html){
+    if(!html){var el=$('print-receipt');if(!el){toast('No hay nada para imprimir','err');return;}
+    html='<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:"Courier New",monospace;font-size:13px;color:#000;margin:0;padding:20px;}.receipt{max-width:350px;margin:0 auto;}.receipt-head{text-align:center;margin-bottom:16px;border-bottom:2px dashed #000;padding-bottom:16px;}.receipt-head h3{font-size:20px;margin:0 0 4px;}.receipt-head p{margin:2px 0;}.receipt-line{display:flex;justify-content:space-between;padding:4px 0;}.receipt-total{border-top:2px dashed #000;margin-top:12px;padding-top:12px;font-weight:bold;font-size:18px;}.receipt-foot{text-align:center;margin-top:16px;border-top:2px dashed #000;padding-top:16px;}</style></head><body>'+el.outerHTML+'</body></html>';}
+    cppMsg({action:'print',html:html});toast('Abriendo impresion...','info');
+}
+
+// =========================================================
+//  NAV
+// =========================================================
+var sections=[
+    {id:'dashboard',icon:'&#9632;',label:'Dashboard'},
+    {id:'mesas',icon:'&#9641;',label:'Mesas'},
+    {id:'pedidos',icon:'&#9993;',label:'Pedidos'},
+    {id:'cocina',icon:'&#9832;',label:'Cocina'},
+    {id:'menu',icon:'&#9733;',label:'Menu'},
+    {id:'inventario',icon:'&#9874;',label:'Inventario'},
+    {id:'finanzas',icon:'&#9830;',label:'Finanzas'},
+    {id:'reportes',icon:'&#9638;',label:'Reportes'},
+    {id:'config',icon:'&#9881;',label:'Configuracion'}
+];
+var hiddenSections=[
+    {id:'admin',icon:'&#9888;',label:'Admin / Backup'}
+];
+var curSection='dashboard';
+
+function buildNav(){
+    var alerts=getAlerts();
+    var invBadge=alerts.length>0?'<span class="nav-badge">'+alerts.length+'</span>':'';
+    var html=sections.map(function(s){
+        var badge=s.id==='inventario'?invBadge:'';
+        return '<div class="nav-item'+(curSection===s.id?' active':'')+'" onclick="go(\''+s.id+'\')"><span class="nav-icon">'+s.icon+'</span>'+s.label+badge+'</div>';
+    }).join('');
+    if(DB&&DB.adminUnlocked){
+        html+='<div class="nav-sep"></div>';
+        html+=hiddenSections.map(function(s){
+            return '<div class="nav-item'+(curSection===s.id?' active':'')+'" onclick="go(\''+s.id+'\')"><span class="nav-icon">'+s.icon+'</span>'+s.label+'</div>';
+        }).join('');
+    }
+    $('nav').innerHTML=html;
+}
+
+function go(s){curSection=s;buildNav();var sec=sections.concat(hiddenSections).find(function(x){return x.id===s;});$('page-title').textContent=sec?sec.label:s;render();}
+function render(){
+    var c=$('content');
+    switch(curSection){
+        case 'dashboard':c.innerHTML=vDashboard();break;
+        case 'mesas':c.innerHTML=vMesas();break;
+        case 'pedidos':c.innerHTML=vPedidos();break;
+        case 'cocina':c.innerHTML=vCocina();break;
+        case 'menu':c.innerHTML=vMenu();break;
+        case 'inventario':c.innerHTML=vInventario();break;
+        case 'finanzas':c.innerHTML=vFinanzas();break;
+        case 'reportes':c.innerHTML=vReportes();break;
+        case 'config':c.innerHTML=vConfig();break;
+        case 'admin':c.innerHTML=vAdmin();break;
+    }
+    checkNotifs();
+}
+
+// =========================================================
+//  SECRET ADMIN UNLOCK - click logo 5 times
+// =========================================================
+var logoClicks=0,logoTimer=null;
+$('logo').onclick=function(){
+    logoClicks++;
+    clearTimeout(logoTimer);
+    logoTimer=setTimeout(function(){logoClicks=0;},2000);
+    if(logoClicks>=5){
+        logoClicks=0;
+        DB.adminUnlocked=!DB.adminUnlocked;
+        saveDB();buildNav();
+        toast(DB.adminUnlocked?'Panel Admin desbloqueado':'Panel Admin oculto','info');
+    }
+};
+
+// =========================================================
+//  DASHBOARD
+// =========================================================
+function vDashboard(){
+    var occ=DB.mesas.filter(function(m){return m.status!=='libre';}).length;
+    var free=DB.mesas.length-occ;
+    var actPed=DB.pedidos.filter(function(p){return p.status==='activo'||p.status==='cocina';}).length;
+    var today=DB.pedidos.filter(function(p){return p.status==='pagado'&&isToday(p.closedAt);});
+    var ventasHoy=today.reduce(function(s,p){return s+p.total;},0);
+    var gastosHoy=DB.gastos.filter(function(g){return isToday(g.date);}).reduce(function(s,g){return s+g.amount;},0);
+    var alerts=getAlerts();
+
+    return '<div class="stats-grid">'+
+        '<div class="card stat-card"><div class="label">Ventas Hoy</div><div class="value" style="color:var(--green)">'+fmt(ventasHoy)+'</div><div class="sub">'+today.length+' pedidos cobrados</div></div>'+
+        '<div class="card stat-card"><div class="label">Gastos Hoy</div><div class="value" style="color:var(--red)">'+fmt(gastosHoy)+'</div></div>'+
+        '<div class="card stat-card"><div class="label">Ganancia Hoy</div><div class="value" style="color:'+(ventasHoy-gastosHoy>=0?'var(--green)':'var(--red)')+'">'+fmt(ventasHoy-gastosHoy)+'</div></div>'+
+        '<div class="card stat-card"><div class="label">Mesas</div><div class="value"><span style="color:var(--red)">'+occ+'</span>/<span style="color:var(--green)">'+free+'</span></div><div class="sub">Ocupadas/Libres</div></div>'+
+    '</div>'+
+    (alerts.length>0?'<div class="card" style="margin-bottom:16px;border-color:var(--yellow);"><h3 style="color:var(--yellow);margin-bottom:10px;">&#9888; Alertas ('+alerts.length+')</h3>'+
+        alerts.slice(0,5).map(function(a){return '<div style="padding:6px 0;color:'+(a.type==='danger'?'var(--red)':'var(--yellow)')+'">'+a.text+'</div>';}).join('')+
+        (alerts.length>5?'<div style="color:var(--t2);margin-top:6px;">y '+(alerts.length-5)+' mas...</div>':'')+
+    '</div>':'')+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">'+
+        '<div class="card"><h3 style="margin-bottom:14px;">Ultimos Pedidos</h3>'+
+            (DB.pedidos.length>0?DB.pedidos.slice(-6).reverse().map(function(p){
+                return '<div class="fin-row"><span style="font-weight:600;">Mesa '+p.mesa+' #'+p.id+'</span><span class="badge '+(p.status==='pagado'?'b-green':p.status==='cocina'?'b-yellow':p.status==='cancelado'?'b-red':'b-blue')+'">'+p.status+'</span><span style="color:var(--pri);font-weight:700;">'+fmt(p.total)+'</span></div>';
+            }).join(''):'<div class="empty"><div class="empty-text">Sin pedidos</div></div>')+
+        '</div>'+
+        '<div class="card"><h3 style="margin-bottom:14px;">Mesas</h3><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">'+
+            DB.mesas.map(function(m){var c=m.status==='libre'?'var(--green)':m.status==='cuenta'?'var(--yellow)':'var(--red)';
+                return '<div style="text-align:center;padding:12px;border-radius:10px;background:var(--s2);border:3px solid '+c+';cursor:pointer;" onclick="go(\'mesas\')"><div style="font-weight:800;font-size:18px;color:'+c+'">'+m.id+'</div></div>';
+            }).join('')+'</div></div>'+
+    '</div>';
+}
+
+// =========================================================
+//  MESAS (same as before, keeping compact)
+// =========================================================
+function vMesas(){
+    return '<div style="display:flex;gap:20px;margin-bottom:16px;font-size:14px;font-weight:500;">'+
+        '<span><span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:var(--green);vertical-align:middle;"></span> Libre</span>'+
+        '<span><span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:var(--red);vertical-align:middle;"></span> Ocupada</span>'+
+        '<span><span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:var(--yellow);vertical-align:middle;"></span> Cuenta</span>'+
+    '</div><div style="margin-bottom:16px;"><button class="btn btn-pri btn-lg" onclick="addMesa()">+ AGREGAR MESA</button></div>'+
+    '<div class="mesas-grid">'+DB.mesas.map(function(m){
+        var ped=m.pedido?DB.pedidos.find(function(p){return p.id===m.pedido;}):null;
+        return '<div class="mesa-card '+m.status+'" onclick="mesaClick('+m.id+')"><div class="mesa-num">'+m.id+'</div><div class="mesa-status">'+m.status+'</div>'+(ped?'<div class="mesa-total">'+fmt(ped.total)+'</div>':'')+'</div>';
+    }).join('')+'</div>';
+}
+function addMesa(){var n=DB.mesas.length>0?Math.max.apply(null,DB.mesas.map(function(m){return m.id;}))+1:1;DB.mesas.push({id:n,status:'libre',pedido:null});auditLog('mesa_add','Mesa '+n);saveDB();render();toast('Mesa '+n+' agregada');}
+function mesaClick(id){var m=DB.mesas.find(function(x){return x.id===id;});if(m.status==='libre')newPedido(id);else if(m.status==='ocupada')editPedido(id);else if(m.status==='cuenta')cobrarMesa(id);}
+
+// =========================================================
+//  NUEVO PEDIDO
+// =========================================================
+function newPedido(mesaId){
+    var items=[],selCat='Todos';
+    function r(){
+        var ma=DB.menu.filter(function(m){return m.active!==false;});
+        var fi=selCat==='Todos'?ma:ma.filter(function(m){return m.cat===selCat;});
+        var tot=items.reduce(function(s,i){return s+i.price*i.qty;},0);
+        openModal('<h2>NUEVO PEDIDO - Mesa '+mesaId+'</h2>'+
+            '<div class="cat-tabs"><div class="cat-tab'+(selCat==='Todos'?' active':'')+'" onclick="window._sc(\'Todos\')">Todos</div>'+
+            DB.categorias.map(function(c){var n=ma.filter(function(m){return m.cat===c;}).length;return n>0?'<div class="cat-tab'+(selCat===c?' active':'')+'" onclick="window._sc(\''+c+'\')">'+c+'</div>':'';}).join('')+'</div>'+
+            '<div class="menu-grid">'+fi.map(function(m){var ic=items.find(function(i){return i.menuId===m.id;});
+                return '<div class="menu-item" onclick="window._ai('+m.id+')" style="'+(ic?'border-color:var(--green);background:rgba(34,197,94,.08);':'')+'"><div class="menu-item-name">'+m.name+'</div><div class="menu-item-cat">'+m.cat+'</div><div class="menu-item-price">'+fmt(m.price)+'</div>'+(ic?'<div style="color:var(--green);font-weight:700;margin-top:3px;">x'+ic.qty+'</div>':'')+'</div>';
+            }).join('')+'</div>'+
+            (items.length>0?'<div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border);"><h3 style="margin-bottom:12px;">PEDIDO ('+items.reduce(function(s,i){return s+i.qty;},0)+' items)</h3>'+
+                items.map(function(it,i){return '<div class="ped-item"><span class="ped-name">'+it.name+'</span><div class="ped-actions"><button class="qty-btn" onclick="window._cq('+i+',-1)">-</button><span class="ped-qty">'+it.qty+'</span><button class="qty-btn" onclick="window._cq('+i+',1)">+</button><span class="ped-price">'+fmt(it.price*it.qty)+'</span></div></div>';}).join('')+
+                '<div style="text-align:right;font-size:26px;font-weight:800;color:var(--pri);margin-top:14px;">TOTAL: '+fmt(tot)+'</div></div>':'')+
+            '<div class="modal-foot"><button class="btn btn-sec btn-lg" onclick="closeModal()">CANCELAR</button>'+(items.length>0?'<button class="btn btn-green btn-lg" onclick="window._confirm()">ENVIAR A COCINA</button>':'')+'</div>');
+    }
+    window._sc=function(c){selCat=c;r();};
+    window._ai=function(mid){var mi=DB.menu.find(function(m){return m.id===mid;});var ex=items.find(function(i){return i.menuId===mid;});if(ex)ex.qty++;else items.push({menuId:mid,name:mi.name,price:mi.price,qty:1});r();};
+    window._cq=function(i,d){items[i].qty+=d;if(items[i].qty<=0)items.splice(i,1);r();};
+    window._confirm=function(){
+        var tot=items.reduce(function(s,i){return s+i.price*i.qty;},0);
+        var ped={id:DB.nextPedido++,mesa:mesaId,items:items.slice(),total:tot,status:'cocina',createdAt:new Date().toISOString(),closedAt:null};
+        DB.pedidos.push(ped);var mesa=DB.mesas.find(function(m){return m.id===mesaId;});mesa.status='ocupada';mesa.pedido=ped.id;
+        auditLog('pedido_creado','Mesa '+mesaId+' Pedido #'+ped.id+' '+fmt(tot));saveDB();closeModal();render();toast('Pedido #'+ped.id+' enviado a cocina');
+    };r();
+}
+
+// =========================================================
+//  EDITAR PEDIDO
+// =========================================================
+function editPedido(mesaId){
+    var mesa=DB.mesas.find(function(m){return m.id===mesaId;});
+    var ped=DB.pedidos.find(function(p){return p.id===mesa.pedido;});if(!ped)return;
+    var selCat='Todos';
+    function r(){
+        var ma=DB.menu.filter(function(m){return m.active!==false;});
+        var fi=selCat==='Todos'?ma:ma.filter(function(m){return m.cat===selCat;});
+        openModal('<h2>MESA '+mesaId+' - Pedido #'+ped.id+'</h2>'+
+            '<h3 style="margin-bottom:12px;">Items del Pedido</h3>'+
+            ped.items.map(function(it,i){return '<div class="ped-item"><span class="ped-name">'+it.name+'</span><div class="ped-actions"><button class="qty-btn" onclick="window._eq('+i+',-1)">-</button><span class="ped-qty">'+it.qty+'</span><button class="qty-btn" onclick="window._eq('+i+',1)">+</button><span class="ped-price">'+fmt(it.price*it.qty)+'</span></div></div>';}).join('')+
+            '<div style="text-align:right;font-size:26px;font-weight:800;color:var(--pri);margin-top:14px;">TOTAL: '+fmt(ped.total)+'</div>'+
+            '<h3 style="margin:20px 0 12px;">AGREGAR MAS</h3>'+
+            '<div class="cat-tabs"><div class="cat-tab'+(selCat==='Todos'?' active':'')+'" onclick="window._sc2(\'Todos\')">Todos</div>'+
+            DB.categorias.map(function(c){var n=ma.filter(function(m){return m.cat===c;}).length;return n>0?'<div class="cat-tab'+(selCat===c?' active':'')+'" onclick="window._sc2(\''+c+'\')">'+c+'</div>':'';}).join('')+'</div>'+
+            '<div class="menu-grid">'+fi.map(function(m){return '<div class="menu-item" onclick="window._ae('+m.id+')"><div class="menu-item-name">'+m.name+'</div><div class="menu-item-price">'+fmt(m.price)+'</div></div>';}).join('')+'</div>'+
+            '<div class="modal-foot"><button class="btn btn-red btn-lg" onclick="window._cancelPed()">CANCELAR PEDIDO</button><button class="btn btn-sec btn-lg" onclick="closeModal();render();">CERRAR</button><button class="btn btn-pri btn-lg" onclick="window._pedirCuenta()">PEDIR CUENTA</button></div>');
+    }
+    window._sc2=function(c){selCat=c;r();};
+    window._eq=function(i,d){ped.items[i].qty+=d;if(ped.items[i].qty<=0)ped.items.splice(i,1);ped.total=pedTotal(ped);if(ped.items.length===0){window._cancelPed();return;}saveDB();r();};
+    window._ae=function(mid){var mi=DB.menu.find(function(m){return m.id===mid;});var ex=ped.items.find(function(i){return i.menuId===mid;});if(ex)ex.qty++;else ped.items.push({menuId:mid,name:mi.name,price:mi.price,qty:1});ped.total=pedTotal(ped);auditLog('pedido_mod','Mesa '+mesaId+' +'+mi.name);saveDB();r();};
+    window._cancelPed=function(){ped.status='cancelado';mesa.status='libre';mesa.pedido=null;auditLog('pedido_cancelado','Mesa '+mesaId+' #'+ped.id);saveDB();closeModal();render();toast('Pedido cancelado','err');};
+    window._pedirCuenta=function(){mesa.status='cuenta';saveDB();closeModal();render();toast('Mesa '+mesaId+' pidio la cuenta');};
+    r();
+}
+
+// =========================================================
+//  COBRAR
+// =========================================================
+function cobrarMesa(mesaId){
+    var mesa=DB.mesas.find(function(m){return m.id===mesaId;});
+    var ped=DB.pedidos.find(function(p){return p.id===mesa.pedido;});if(!ped)return;
+    var r=DB.restaurant;
+    openModal(
+        '<div class="receipt" id="print-receipt"><div class="receipt-head"><h3>'+r.name+'</h3><p>'+r.address+'</p><p>Tel: '+r.phone+'</p><p style="margin-top:8px;font-weight:bold;">Mesa: '+mesaId+' | Pedido: #'+ped.id+'</p><p>'+new Date().toLocaleString('es')+'</p></div>'+
+        '<div class="receipt-line" style="font-weight:bold;border-bottom:1px dashed #000;padding-bottom:4px;margin-bottom:4px;"><span>ITEM</span><span>TOTAL</span></div>'+
+        ped.items.map(function(i){return '<div class="receipt-line"><span>'+i.qty+'x '+i.name+'</span><span>'+fmt(i.price*i.qty)+'</span></div>';}).join('')+
+        '<div class="receipt-line receipt-total"><span>TOTAL A PAGAR</span><span>'+fmt(ped.total)+'</span></div>'+
+        '<div class="receipt-foot">Gracias por su visita!<br>Vuelva pronto</div></div>'+
+        '<div class="modal-foot"><button class="btn btn-sec btn-lg" onclick="closeModal();render();">VOLVER</button><button class="btn btn-pri btn-lg" onclick="nativePrint()">IMPRIMIR</button><button class="btn btn-green btn-lg" onclick="window._cobrar()">COBRADO</button></div>');
+    window._cobrar=function(){
+        ped.status='pagado';ped.closedAt=new Date().toISOString();mesa.status='libre';mesa.pedido=null;
+        auditLog('pago','Mesa '+mesaId+' #'+ped.id+' '+fmt(ped.total));saveDB();closeModal();render();toast('Mesa '+mesaId+' cobrada: '+fmt(ped.total));
+    };
+}
+
+// =========================================================
+//  PEDIDOS
+// =========================================================
+function vPedidos(){
+    var act=DB.pedidos.filter(function(p){return p.status==='activo'||p.status==='cocina'||p.status==='cuenta';});
+    if(act.length===0)return '<div class="empty"><div class="empty-icon">&#9993;</div><div class="empty-text">No hay pedidos activos</div></div>';
+    return '<div class="table-wrap"><table><thead><tr><th>#</th><th>Mesa</th><th>Items</th><th>Total</th><th>Estado</th><th>Tiempo</th><th>Accion</th></tr></thead><tbody>'+
+        act.map(function(p){return '<tr><td><strong>#'+p.id+'</strong></td><td style="font-size:17px;font-weight:700;">Mesa '+p.mesa+'</td><td style="max-width:300px;">'+p.items.map(function(i){return i.qty+'x '+i.name;}).join(', ')+'</td><td style="color:var(--pri);font-weight:700;">'+fmt(p.total)+'</td><td><span class="badge '+(p.status==='cocina'?'b-yellow':p.status==='cuenta'?'b-blue':'b-green')+'">'+p.status.toUpperCase()+'</span></td><td style="color:var(--t2)">'+timeAgo(p.createdAt)+'</td><td><button class="btn btn-pri btn-sm" onclick="mesaClick('+p.mesa+')">VER</button></td></tr>';}).join('')+
+    '</tbody></table></div>';
+}
+
+// =========================================================
+//  COCINA
+// =========================================================
+function vCocina(){
+    var c=DB.pedidos.filter(function(p){return p.status==='cocina';});
+    if(c.length===0)return '<div class="empty"><div class="empty-icon">&#9832;</div><div class="empty-text">No hay pedidos en cocina</div></div>';
+    return '<div class="cocina-grid">'+c.map(function(p){
+        return '<div class="cocina-card"><div class="cocina-head"><div class="cocina-mesa">MESA '+p.mesa+'</div><div class="cocina-time">'+timeAgo(p.createdAt)+'</div></div>'+
+            p.items.map(function(i){return '<div class="cocina-item"><span class="cocina-qty">'+i.qty+'x</span> '+i.name+'</div>';}).join('')+
+            '<button class="btn btn-green btn-lg btn-block" style="margin-top:14px;" onclick="marcarListo('+p.id+')">LISTO - SERVIR</button></div>';
+    }).join('')+'</div>';
+}
+function marcarListo(pid){var p=DB.pedidos.find(function(x){return x.id===pid;});p.status='activo';auditLog('cocina_listo','Pedido #'+pid+' Mesa '+p.mesa);saveDB();render();toast('Pedido #'+pid+' listo');}
+
+// =========================================================
+//  MENU ADMIN
+// =========================================================
+function vMenu(){
+    return '<div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;"><button class="btn btn-pri btn-lg" onclick="addPlato()">+ AGREGAR PLATO</button><button class="btn btn-sec btn-lg" onclick="addCat()">+ CATEGORIA</button></div>'+
+        '<div class="cat-tabs" id="mcats"><div class="cat-tab active" onclick="fmenu(\'Todos\',this)">Todos ('+DB.menu.length+')</div>'+
+        DB.categorias.map(function(c){var n=DB.menu.filter(function(m){return m.cat===c;}).length;return '<div class="cat-tab" onclick="fmenu(\''+c+'\',this)">'+c+' ('+n+')</div>';}).join('')+'</div>'+
+        '<div class="table-wrap"><table><thead><tr><th>Nombre</th><th>Categoria</th><th>Precio</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="mtb">'+
+        DB.menu.map(function(m){return '<tr data-cat="'+m.cat+'"><td style="font-weight:600;">'+m.name+'</td><td><span class="badge b-blue">'+m.cat+'</span></td><td style="color:var(--pri);font-weight:700;">'+fmt(m.price)+'</td><td><span class="badge '+(m.active!==false?'b-green':'b-red')+'">'+(m.active!==false?'ACTIVO':'OFF')+'</span></td><td><button class="btn btn-sec btn-sm" onclick="editPlato('+m.id+')">EDITAR</button> <button class="btn btn-sm" style="background:var(--s2);color:'+(m.active!==false?'var(--red)':'var(--green)')+';border:1px solid var(--border);" onclick="togglePlato('+m.id+')">'+(m.active!==false?'OFF':'ON')+'</button></td></tr>';}).join('')+
+        '</tbody></table></div>';
+}
+function fmenu(c,el){document.querySelectorAll('#mcats .cat-tab').forEach(function(t){t.classList.remove('active');});el.classList.add('active');document.querySelectorAll('#mtb tr').forEach(function(tr){tr.style.display=(c==='Todos'||tr.dataset.cat===c)?'':'none';});}
+function addPlato(){openModal('<h2>AGREGAR PLATO</h2><div class="fg"><label>Nombre</label><input id="pn" placeholder="Ej: Pollo a la Plancha"></div><div class="form-row"><div class="fg"><label>Categoria</label><select id="pc">'+DB.categorias.map(function(c){return '<option>'+c+'</option>';}).join('')+'</select></div><div class="fg"><label>Precio</label><input id="pp" type="number" step="0.01" placeholder="0.00"></div></div><div class="modal-foot"><button class="btn btn-sec btn-lg" onclick="closeModal()">CANCELAR</button><button class="btn btn-green btn-lg" onclick="savePlato()">GUARDAR</button></div>');setTimeout(function(){$('pn').focus();},100);}
+function savePlato(){var n=$('pn').value.trim(),c=$('pc').value,p=parseFloat($('pp').value)||0;if(!n){toast('Escribe un nombre','err');return;}if(p<=0){toast('Precio invalido','err');return;}DB.menu.push({id:DB.nextMenu++,name:n,cat:c,price:p,active:true});auditLog('menu_add',n+' '+fmt(p));saveDB();closeModal();render();toast(n+' agregado');}
+function editPlato(id){var m=DB.menu.find(function(x){return x.id===id;});openModal('<h2>EDITAR PLATO</h2><div class="fg"><label>Nombre</label><input id="pn" value="'+m.name+'"></div><div class="form-row"><div class="fg"><label>Categoria</label><select id="pc">'+DB.categorias.map(function(c){return '<option'+(c===m.cat?' selected':'')+'>'+c+'</option>';}).join('')+'</select></div><div class="fg"><label>Precio</label><input id="pp" type="number" step="0.01" value="'+m.price+'"></div></div><div class="modal-foot"><button class="btn btn-red btn-lg" onclick="delPlato('+id+')">ELIMINAR</button><button class="btn btn-sec btn-lg" onclick="closeModal()">CANCELAR</button><button class="btn btn-green btn-lg" onclick="updPlato('+id+')">GUARDAR</button></div>');}
+function updPlato(id){var m=DB.menu.find(function(x){return x.id===id;});m.name=$('pn').value.trim();m.cat=$('pc').value;m.price=parseFloat($('pp').value)||0;auditLog('menu_edit',m.name);saveDB();closeModal();render();toast('Actualizado');}
+function delPlato(id){var m=DB.menu.find(function(x){return x.id===id;});DB.menu=DB.menu.filter(function(x){return x.id!==id;});auditLog('menu_del',m.name);saveDB();closeModal();render();toast('Eliminado','err');}
+function togglePlato(id){var m=DB.menu.find(function(x){return x.id===id;});m.active=!m.active;saveDB();render();}
+function addCat(){openModal('<h2>NUEVA CATEGORIA</h2><div class="fg"><label>Nombre</label><input id="cn" placeholder="Ej: Sopas Especiales"></div><div class="modal-foot"><button class="btn btn-sec btn-lg" onclick="closeModal()">CANCELAR</button><button class="btn btn-green btn-lg" onclick="saveCat()">GUARDAR</button></div>');setTimeout(function(){$('cn').focus();},100);}
+function saveCat(){var n=$('cn').value.trim();if(!n){toast('Escribe nombre','err');return;}if(DB.categorias.indexOf(n)!==-1){toast('Ya existe','err');return;}DB.categorias.push(n);saveDB();closeModal();render();toast('Categoria creada');}
+
+// =========================================================
+//  INVENTARIO
+// =========================================================
+function vInventario(){
+    var low=DB.inventario.filter(function(p){return p.qty<=p.minStock&&p.minStock>0;});
+    var expiring=DB.inventario.filter(function(p){if(!p.expDate)return false;var d=Math.ceil((new Date(p.expDate)-new Date())/(86400000));return d<=7;});
+    var totalValue=DB.inventario.reduce(function(s,p){return s+p.qty*p.cost;},0);
+
+    return '<div class="stats-grid">'+
+        '<div class="card stat-card"><div class="label">Total Productos</div><div class="value">'+DB.inventario.length+'</div></div>'+
+        '<div class="card stat-card"><div class="label">Valor del Inventario</div><div class="value" style="color:var(--pri)">'+fmt(totalValue)+'</div></div>'+
+        '<div class="card stat-card"><div class="label">Stock Bajo</div><div class="value" style="color:'+(low.length>0?'var(--red)':'var(--green)')+'">'+low.length+'</div></div>'+
+        '<div class="card stat-card"><div class="label">Por Expirar</div><div class="value" style="color:'+(expiring.length>0?'var(--yellow)':'var(--green)')+'">'+expiring.length+'</div></div>'+
+    '</div>'+
+    '<div style="display:flex;gap:12px;margin-bottom:16px;"><button class="btn btn-pri btn-lg" onclick="addInvItem()">+ AGREGAR PRODUCTO</button><button class="btn btn-sec btn-lg" onclick="addInvCat()">+ CATEGORIA</button></div>'+
+    (low.length>0?'<div class="card" style="margin-bottom:14px;border-color:var(--red);"><h3 style="color:var(--red);margin-bottom:10px;">&#9888; STOCK BAJO - Necesita pedido</h3>'+
+        low.map(function(p){return '<div class="fin-row"><span style="font-weight:600;color:var(--red);">'+p.name+'</span><span>'+p.qty+' '+p.unit+' (min: '+p.minStock+')</span><button class="btn btn-pri btn-sm" onclick="restockItem('+p.id+')">REABASTECER</button></div>';}).join('')+'</div>':'')+
+    (expiring.length>0?'<div class="card" style="margin-bottom:14px;border-color:var(--yellow);"><h3 style="color:var(--yellow);margin-bottom:10px;">&#9888; PROXIMO A EXPIRAR</h3>'+
+        expiring.map(function(p){var d=Math.ceil((new Date(p.expDate)-new Date())/86400000);return '<div class="fin-row"><span style="font-weight:600;color:'+(d<0?'var(--red)':'var(--yellow)')+';">'+p.name+'</span><span>'+(d<0?'EXPIRADO hace '+Math.abs(d)+' dias':'Expira en '+d+' dias')+'</span></div>';}).join('')+'</div>':'')+
+    '<div class="table-wrap"><table><thead><tr><th>Producto</th><th>Categoria</th><th>Cantidad</th><th>Costo Unit.</th><th>Min. Stock</th><th>Expiracion</th><th>Acciones</th></tr></thead><tbody>'+
+        (DB.inventario.length>0?DB.inventario.map(function(p){
+            var isLow=p.qty<=p.minStock&&p.minStock>0;
+            var isExp=p.expDate&&Math.ceil((new Date(p.expDate)-new Date())/86400000)<=7;
+            return '<tr><td style="font-weight:600;">'+p.name+(isLow?' <span style="color:var(--red);">&#9888;</span>':'')+'</td><td><span class="badge b-purple">'+p.category+'</span></td><td style="color:'+(isLow?'var(--red)':'var(--text)')+';font-weight:700;">'+p.qty+' '+p.unit+'</td><td>'+fmt(p.cost)+'</td><td>'+p.minStock+'</td><td style="color:'+(isExp?'var(--red)':'var(--t2)')+';">'+(p.expDate||'N/A')+'</td><td><button class="btn btn-sec btn-sm" onclick="editInvItem('+p.id+')">EDITAR</button> <button class="btn btn-pri btn-sm" onclick="restockItem('+p.id+')">+STOCK</button></td></tr>';
+        }).join(''):'<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--t2);">No hay productos en inventario. Agrega uno.</td></tr>')+
+    '</tbody></table></div>';
+}
+
+function addInvItem(){
+    openModal('<h2>AGREGAR PRODUCTO AL INVENTARIO</h2>'+
+        '<div class="fg"><label>Nombre del Producto</label><input id="in" placeholder="Ej: Pechuga de Pollo"></div>'+
+        '<div class="form-row"><div class="fg"><label>Categoria</label><select id="ic">'+DB.invCategorias.map(function(c){return '<option>'+c+'</option>';}).join('')+'</select></div><div class="fg"><label>Unidad</label><select id="iu"><option>unidad</option><option>lb</option><option>kg</option><option>litro</option><option>galon</option><option>caja</option><option>paquete</option><option>botella</option><option>lata</option><option>docena</option></select></div></div>'+
+        '<div class="form-row3"><div class="fg"><label>Cantidad Actual</label><input id="iq" type="number" step="0.1" value="0"></div><div class="fg"><label>Costo Unitario</label><input id="ip" type="number" step="0.01" value="0"></div><div class="fg"><label>Stock Minimo</label><input id="im" type="number" value="5"></div></div>'+
+        '<div class="fg"><label>Fecha de Expiracion (opcional)</label><input id="ie" type="date"></div>'+
+        '<div class="modal-foot"><button class="btn btn-sec btn-lg" onclick="closeModal()">CANCELAR</button><button class="btn btn-green btn-lg" onclick="saveInvItem()">GUARDAR</button></div>');
+}
+
+function saveInvItem(){
+    var n=$('in').value.trim();if(!n){toast('Escribe nombre','err');return;}
+    DB.inventario.push({id:DB.nextInv++,name:n,category:$('ic').value,unit:$('iu').value,qty:parseFloat($('iq').value)||0,cost:parseFloat($('ip').value)||0,minStock:parseInt($('im').value)||0,expDate:$('ie').value||null});
+    auditLog('inv_add',n);saveDB();closeModal();render();toast(n+' agregado al inventario');
+}
+
+function editInvItem(id){
+    var p=DB.inventario.find(function(x){return x.id===id;});
+    openModal('<h2>EDITAR PRODUCTO</h2>'+
+        '<div class="fg"><label>Nombre</label><input id="in" value="'+p.name+'"></div>'+
+        '<div class="form-row"><div class="fg"><label>Categoria</label><select id="ic">'+DB.invCategorias.map(function(c){return '<option'+(c===p.category?' selected':'')+'>'+c+'</option>';}).join('')+'</select></div><div class="fg"><label>Unidad</label><select id="iu"><option'+(p.unit==='unidad'?' selected':'')+'>unidad</option><option'+(p.unit==='lb'?' selected':'')+'>lb</option><option'+(p.unit==='kg'?' selected':'')+'>kg</option><option'+(p.unit==='litro'?' selected':'')+'>litro</option><option'+(p.unit==='galon'?' selected':'')+'>galon</option><option'+(p.unit==='caja'?' selected':'')+'>caja</option><option'+(p.unit==='paquete'?' selected':'')+'>paquete</option><option'+(p.unit==='botella'?' selected':'')+'>botella</option><option'+(p.unit==='lata'?' selected':'')+'>lata</option><option'+(p.unit==='docena'?' selected':'')+'>docena</option></select></div></div>'+
+        '<div class="form-row3"><div class="fg"><label>Cantidad</label><input id="iq" type="number" step="0.1" value="'+p.qty+'"></div><div class="fg"><label>Costo Unit.</label><input id="ip" type="number" step="0.01" value="'+p.cost+'"></div><div class="fg"><label>Stock Min.</label><input id="im" type="number" value="'+p.minStock+'"></div></div>'+
+        '<div class="fg"><label>Expiracion</label><input id="ie" type="date" value="'+(p.expDate||'')+'"></div>'+
+        '<div class="modal-foot"><button class="btn btn-red btn-lg" onclick="delInvItem('+id+')">ELIMINAR</button><button class="btn btn-sec btn-lg" onclick="closeModal()">CANCELAR</button><button class="btn btn-green btn-lg" onclick="updInvItem('+id+')">GUARDAR</button></div>');
+}
+
+function updInvItem(id){var p=DB.inventario.find(function(x){return x.id===id;});p.name=$('in').value.trim();p.category=$('ic').value;p.unit=$('iu').value;p.qty=parseFloat($('iq').value)||0;p.cost=parseFloat($('ip').value)||0;p.minStock=parseInt($('im').value)||0;p.expDate=$('ie').value||null;auditLog('inv_edit',p.name);saveDB();closeModal();render();toast('Actualizado');}
+function delInvItem(id){var p=DB.inventario.find(function(x){return x.id===id;});DB.inventario=DB.inventario.filter(function(x){return x.id!==id;});auditLog('inv_del',p.name);saveDB();closeModal();render();toast('Eliminado','err');}
+
+function restockItem(id){
+    var p=DB.inventario.find(function(x){return x.id===id;});
+    openModal('<h2>REABASTECER: '+p.name+'</h2><p style="color:var(--t2);margin-bottom:14px;">Actual: <strong style="color:var(--text);">'+p.qty+' '+p.unit+'</strong> | Minimo: '+p.minStock+'</p>'+
+        '<div class="fg"><label>Cantidad a Agregar</label><input id="rq" type="number" step="0.1" placeholder="Ej: 20"></div>'+
+        '<div class="fg"><label>Costo total de la compra (opcional)</label><input id="rc" type="number" step="0.01" placeholder="0.00"></div>'+
+        '<div class="modal-foot"><button class="btn btn-sec btn-lg" onclick="closeModal()">CANCELAR</button><button class="btn btn-green btn-lg" onclick="doRestock('+id+')">CONFIRMAR</button></div>');
+}
+function doRestock(id){
+    var p=DB.inventario.find(function(x){return x.id===id;});
+    var qty=parseFloat($('rq').value)||0;var cost=parseFloat($('rc').value)||0;
+    if(qty<=0){toast('Cantidad invalida','err');return;}
+    p.qty+=qty;
+    if(cost>0){DB.gastos.push({id:DB.nextGasto++,date:new Date().toISOString(),category:'Ingredientes',description:'Restock: '+p.name+' (+'+qty+' '+p.unit+')',amount:cost});auditLog('gasto','Restock '+p.name+' '+fmt(cost));}
+    auditLog('inv_restock',p.name+' +'+qty+' '+p.unit);saveDB();closeModal();render();toast(p.name+' reabastecido: +'+qty+' '+p.unit);
+}
+function addInvCat(){openModal('<h2>NUEVA CATEGORIA INVENTARIO</h2><div class="fg"><label>Nombre</label><input id="icn" placeholder="Ej: Salsas"></div><div class="modal-foot"><button class="btn btn-sec btn-lg" onclick="closeModal()">CANCELAR</button><button class="btn btn-green btn-lg" onclick="saveInvCat()">GUARDAR</button></div>');setTimeout(function(){$('icn').focus();},100);}
+function saveInvCat(){var n=$('icn').value.trim();if(!n||DB.invCategorias.indexOf(n)!==-1){toast('Invalido o ya existe','err');return;}DB.invCategorias.push(n);saveDB();closeModal();render();toast('Categoria creada');}
+
+// =========================================================
+//  FINANZAS
+// =========================================================
+var finTab='resumen';
+function vFinanzas(){
+    return '<div class="tab-bar">'+
+        ['resumen','gastos','diario','semanal','mensual','anual'].map(function(t){
+            var labels={resumen:'Resumen General',gastos:'Gastos',diario:'Hoy',semanal:'Semana',mensual:'Mes',anual:'Año'};
+            return '<div class="tab-btn'+(finTab===t?' active':'')+'" onclick="finTab=\''+t+'\';render();">'+labels[t]+'</div>';
+        }).join('')+
+    '</div>'+
+    '<div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">'+
+        '<button class="btn btn-pri" onclick="addGasto()">+ REGISTRAR GASTO</button>'+
+        '<button class="btn btn-sec" onclick="exportFinCSV()">EXPORTAR EXCEL (CSV)</button>'+
+        '<button class="btn btn-sec" onclick="printFinanzas()">IMPRIMIR PDF</button>'+
+    '</div>'+
+    (function(){
+        switch(finTab){
+            case 'resumen':return vFinResumen();
+            case 'gastos':return vFinGastos();
+            case 'diario':return vFinPeriodo('hoy');
+            case 'semanal':return vFinPeriodo('semana');
+            case 'mensual':return vFinPeriodo('mes');
+            case 'anual':return vFinPeriodo('anual');
+        }
+    })();
+}
+
+function getVentas(filter){return DB.pedidos.filter(function(p){return p.status==='pagado'&&filter(p.closedAt);});}
+function getGastos(filter){return DB.gastos.filter(function(g){return filter(g.date);});}
+
+function vFinResumen(){
+    var pagados=DB.pedidos.filter(function(p){return p.status==='pagado';});
+    var totalVentas=pagados.reduce(function(s,p){return s+p.total;},0);
+    var totalGastos=DB.gastos.reduce(function(s,g){return s+g.amount;},0);
+    var ganancia=totalVentas-totalGastos;
+    var vHoy=getVentas(isToday).reduce(function(s,p){return s+p.total;},0);
+    var gHoy=getGastos(isToday).reduce(function(s,g){return s+g.amount;},0);
+    var vMes=getVentas(isThisMonth).reduce(function(s,p){return s+p.total;},0);
+    var gMes=getGastos(isThisMonth).reduce(function(s,g){return s+g.amount;},0);
+
+    return '<div class="stats-grid">'+
+        '<div class="card stat-card"><div class="label">Ventas Totales</div><div class="value" style="color:var(--green)">'+fmt(totalVentas)+'</div><div class="sub">'+pagados.length+' pedidos</div></div>'+
+        '<div class="card stat-card"><div class="label">Gastos Totales</div><div class="value" style="color:var(--red)">'+fmt(totalGastos)+'</div><div class="sub">'+DB.gastos.length+' gastos</div></div>'+
+        '<div class="card stat-card"><div class="label">Ganancia Neta</div><div class="value" style="color:'+(ganancia>=0?'var(--green)':'var(--red)')+'">'+fmt(ganancia)+'</div><div class="sub">'+(ganancia>=0?'Positiva':'Perdida')+'</div></div>'+
+        '<div class="card stat-card"><div class="label">Margen</div><div class="value" style="color:var(--pri)">'+(totalVentas>0?(ganancia/totalVentas*100).toFixed(1):'0')+'%</div></div>'+
+    '</div>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">'+
+        '<div class="card"><h3 style="margin-bottom:14px;">Hoy</h3>'+
+            '<div class="fin-row"><span>Ventas</span><span style="color:var(--green);font-weight:700;">'+fmt(vHoy)+'</span></div>'+
+            '<div class="fin-row"><span>Gastos</span><span style="color:var(--red);font-weight:700;">'+fmt(gHoy)+'</span></div>'+
+            '<div class="fin-row"><span style="font-weight:700;">Ganancia</span><span style="color:'+(vHoy-gHoy>=0?'var(--green)':'var(--red)')+';font-weight:700;font-size:18px;">'+fmt(vHoy-gHoy)+'</span></div>'+
+        '</div>'+
+        '<div class="card"><h3 style="margin-bottom:14px;">Este Mes</h3>'+
+            '<div class="fin-row"><span>Ventas</span><span style="color:var(--green);font-weight:700;">'+fmt(vMes)+'</span></div>'+
+            '<div class="fin-row"><span>Gastos</span><span style="color:var(--red);font-weight:700;">'+fmt(gMes)+'</span></div>'+
+            '<div class="fin-row"><span style="font-weight:700;">Ganancia</span><span style="color:'+(vMes-gMes>=0?'var(--green)':'var(--red)')+';font-weight:700;font-size:18px;">'+fmt(vMes-gMes)+'</span></div>'+
+        '</div>'+
+    '</div>'+
+    '<div class="card" style="margin-top:14px;"><h3 style="margin-bottom:14px;">Gastos por Categoria</h3>'+
+        (function(){
+            var cats={};DB.gastos.forEach(function(g){cats[g.category]=(cats[g.category]||0)+g.amount;});
+            var sorted=Object.entries(cats).sort(function(a,b){return b[1]-a[1];});
+            var max=sorted.length>0?sorted[0][1]:1;
+            return sorted.length>0?sorted.map(function(c){
+                return '<div style="margin-bottom:10px;"><div style="display:flex;justify-content:space-between;"><span>'+c[0]+'</span><span style="font-weight:700;color:var(--red);">'+fmt(c[1])+'</span></div><div class="progress-bar"><div class="progress-fill" style="width:'+((c[1]/max)*100)+'%;background:var(--red);"></div></div></div>';
+            }).join(''):'<div style="color:var(--t2);">No hay gastos registrados</div>';
+        })()+
+    '</div>';
+}
+
+function vFinPeriodo(periodo){
+    var filter,label;
+    switch(periodo){
+        case 'hoy':filter=isToday;label='Hoy';break;
+        case 'semana':filter=isThisWeek;label='Esta Semana';break;
+        case 'mes':filter=isThisMonth;label='Este Mes';break;
+        case 'anual':filter=isThisYear;label='Este Año';break;
+    }
+    var ventas=getVentas(filter);var gastos=getGastos(filter);
+    var totalV=ventas.reduce(function(s,p){return s+p.total;},0);
+    var totalG=gastos.reduce(function(s,g){return s+g.amount;},0);
+    var ganancia=totalV-totalG;
+    var avg=ventas.length>0?totalV/ventas.length:0;
+
+    // Top platos
+    var platoCnt={};ventas.forEach(function(p){p.items.forEach(function(i){platoCnt[i.name]=(platoCnt[i.name]||0)+i.qty;});});
+    var topPlatos=Object.entries(platoCnt).sort(function(a,b){return b[1]-a[1];}).slice(0,10);
+
+    return '<div class="stats-grid">'+
+        '<div class="card stat-card"><div class="label">Ventas '+label+'</div><div class="value" style="color:var(--green)">'+fmt(totalV)+'</div><div class="sub">'+ventas.length+' pedidos</div></div>'+
+        '<div class="card stat-card"><div class="label">Gastos '+label+'</div><div class="value" style="color:var(--red)">'+fmt(totalG)+'</div><div class="sub">'+gastos.length+' gastos</div></div>'+
+        '<div class="card stat-card"><div class="label">Ganancia '+label+'</div><div class="value" style="color:'+(ganancia>=0?'var(--green)':'var(--red)')+'">'+fmt(ganancia)+'</div></div>'+
+        '<div class="card stat-card"><div class="label">Ticket Promedio</div><div class="value" style="color:var(--pri)">'+fmt(avg)+'</div></div>'+
+    '</div>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">'+
+        '<div class="card"><h3 style="margin-bottom:14px;">Top Platos - '+label+'</h3>'+
+            (topPlatos.length>0?topPlatos.map(function(p,i){return '<div class="fin-row"><span><span style="color:var(--pri);font-weight:700;margin-right:6px;">#'+(i+1)+'</span>'+p[0]+'</span><span style="color:var(--green);font-weight:700;">'+p[1]+' vendidos</span></div>';}).join(''):'<div style="color:var(--t2);">Sin datos</div>')+
+        '</div>'+
+        '<div class="card"><h3 style="margin-bottom:14px;">Detalle de Ventas</h3>'+
+            (ventas.length>0?ventas.slice(-10).reverse().map(function(p){return '<div class="fin-row"><span>Mesa '+p.mesa+' #'+p.id+'</span><span style="color:var(--t2);font-size:12px;">'+new Date(p.closedAt).toLocaleString('es')+'</span><span style="color:var(--green);font-weight:700;">'+fmt(p.total)+'</span></div>';}).join(''):'<div style="color:var(--t2);">Sin ventas</div>')+
+        '</div>'+
+    '</div>';
+}
+
+function vFinGastos(){
+    return '<div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Categoria</th><th>Descripcion</th><th>Monto</th><th>Accion</th></tr></thead><tbody>'+
+        (DB.gastos.length>0?DB.gastos.slice().reverse().map(function(g){
+            return '<tr><td style="color:var(--t2);">'+new Date(g.date).toLocaleDateString('es')+'</td><td><span class="badge b-red">'+g.category+'</span></td><td>'+g.description+'</td><td style="color:var(--red);font-weight:700;">'+fmt(g.amount)+'</td><td><button class="btn btn-red btn-sm" onclick="delGasto('+g.id+')">X</button></td></tr>';
+        }).join(''):'<tr><td colspan="5" style="text-align:center;padding:40px;color:var(--t2);">No hay gastos registrados</td></tr>')+
+    '</tbody></table></div>';
+}
+
+function addGasto(){
+    openModal('<h2>REGISTRAR GASTO</h2>'+
+        '<div class="fg"><label>Descripcion</label><input id="gd" placeholder="Ej: Compra de carnes para la semana"></div>'+
+        '<div class="form-row"><div class="fg"><label>Categoria</label><select id="gc">'+DB.gastoCategorias.map(function(c){return '<option>'+c+'</option>';}).join('')+'</select></div><div class="fg"><label>Monto</label><input id="gm" type="number" step="0.01" placeholder="0.00"></div></div>'+
+        '<div class="fg"><label>Fecha</label><input id="gf" type="date" value="'+new Date().toISOString().split('T')[0]+'"></div>'+
+        '<div class="modal-foot"><button class="btn btn-sec btn-lg" onclick="closeModal()">CANCELAR</button><button class="btn btn-green btn-lg" onclick="saveGasto()">GUARDAR</button></div>');
+}
+function saveGasto(){
+    var d=$('gd').value.trim(),m=parseFloat($('gm').value)||0;
+    if(!d){toast('Escribe descripcion','err');return;}if(m<=0){toast('Monto invalido','err');return;}
+    DB.gastos.push({id:DB.nextGasto++,date:$('gf').value||new Date().toISOString(),category:$('gc').value,description:d,amount:m});
+    auditLog('gasto_add',d+' '+fmt(m));saveDB();closeModal();render();toast('Gasto registrado: '+fmt(m));
+}
+function delGasto(id){DB.gastos=DB.gastos.filter(function(g){return g.id!==id;});auditLog('gasto_del','Gasto #'+id);saveDB();render();toast('Gasto eliminado','err');}
+
+// EXPORT CSV
+function exportFinCSV(){
+    var lines=['Tipo,Fecha,Descripcion,Categoria,Monto'];
+    DB.pedidos.filter(function(p){return p.status==='pagado';}).forEach(function(p){
+        lines.push('Venta,'+new Date(p.closedAt).toLocaleDateString('es')+',Mesa '+p.mesa+' Pedido #'+p.id+',Ventas,'+p.total.toFixed(2));
+    });
+    DB.gastos.forEach(function(g){
+        lines.push('Gasto,'+new Date(g.date).toLocaleDateString('es')+','+g.description.replace(/,/g,';')+','+g.category+','+g.amount.toFixed(2));
+    });
+    var csv=lines.join('\n');
+    var fname='RestaurantApp_Finanzas_'+new Date().toISOString().split('T')[0]+'.csv';
+    cppMsg({action:'exportFile',filename:fname,content:csv});
+}
+
+// PRINT FINANZAS
+function printFinanzas(){
+    var pagados=DB.pedidos.filter(function(p){return p.status==='pagado';});
+    var totalV=pagados.reduce(function(s,p){return s+p.total;},0);
+    var totalG=DB.gastos.reduce(function(s,g){return s+g.amount;},0);
+    var r=DB.restaurant;
+    var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:Arial,sans-serif;font-size:12px;color:#000;margin:20px;}h1{font-size:20px;margin-bottom:4px;}h2{font-size:16px;margin:16px 0 8px;border-bottom:1px solid #000;padding-bottom:4px;}table{width:100%;border-collapse:collapse;margin-bottom:16px;}th,td{padding:6px 8px;text-align:left;border-bottom:1px solid #ccc;}th{background:#f0f0f0;font-weight:bold;}.r{text-align:right;}.g{color:green;}.rd{color:red;}.b{font-weight:bold;}</style></head><body>'+
+        '<h1>'+r.name+' - Reporte Financiero</h1><p>'+r.address+' | Tel: '+r.phone+'</p><p>Fecha: '+new Date().toLocaleDateString('es')+'</p>'+
+        '<h2>Resumen</h2><table><tr><td class="b">Ventas Totales</td><td class="r g b">'+fmt(totalV)+'</td></tr><tr><td class="b">Gastos Totales</td><td class="r rd b">'+fmt(totalG)+'</td></tr><tr><td class="b">Ganancia Neta</td><td class="r b" style="color:'+(totalV-totalG>=0?'green':'red')+'">'+fmt(totalV-totalG)+'</td></tr></table>'+
+        '<h2>Detalle de Ventas ('+pagados.length+')</h2><table><tr><th>Fecha</th><th>Mesa</th><th>Pedido</th><th class="r">Monto</th></tr>'+
+        pagados.slice(-50).reverse().map(function(p){return '<tr><td>'+new Date(p.closedAt).toLocaleString('es')+'</td><td>'+p.mesa+'</td><td>#'+p.id+'</td><td class="r g">'+fmt(p.total)+'</td></tr>';}).join('')+'</table>'+
+        '<h2>Detalle de Gastos ('+DB.gastos.length+')</h2><table><tr><th>Fecha</th><th>Categoria</th><th>Descripcion</th><th class="r">Monto</th></tr>'+
+        DB.gastos.slice(-50).reverse().map(function(g){return '<tr><td>'+new Date(g.date).toLocaleDateString('es')+'</td><td>'+g.category+'</td><td>'+g.description+'</td><td class="r rd">'+fmt(g.amount)+'</td></tr>';}).join('')+'</table>'+
+        '</body></html>';
+    cppMsg({action:'print',html:html});toast('Abriendo impresion...','info');
+}
+
+// =========================================================
+//  REPORTES
+// =========================================================
+function vReportes(){
+    var pagados=DB.pedidos.filter(function(p){return p.status==='pagado';});
+    var totalV=pagados.reduce(function(s,p){return s+p.total;},0);
+    var avg=pagados.length>0?totalV/pagados.length:0;
+    var platoCnt={};pagados.forEach(function(p){p.items.forEach(function(i){platoCnt[i.name]=(platoCnt[i.name]||0)+i.qty;});});
+    var top=Object.entries(platoCnt).sort(function(a,b){return b[1]-a[1];}).slice(0,10);
+
+    return '<div class="stats-grid">'+
+        '<div class="card stat-card"><div class="label">Total Ventas</div><div class="value" style="color:var(--green)">'+fmt(totalV)+'</div><div class="sub">'+pagados.length+' pedidos</div></div>'+
+        '<div class="card stat-card"><div class="label">Ticket Promedio</div><div class="value" style="color:var(--pri)">'+fmt(avg)+'</div></div>'+
+        '<div class="card stat-card"><div class="label">Total Pedidos</div><div class="value">'+DB.pedidos.length+'</div></div>'+
+        '<div class="card stat-card"><div class="label">Platos en Menu</div><div class="value">'+DB.menu.filter(function(m){return m.active!==false;}).length+'</div></div>'+
+    '</div>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">'+
+        '<div class="card"><h3 style="margin-bottom:14px;">Top 10 Mas Vendidos</h3>'+
+            (top.length>0?top.map(function(p,i){return '<div class="fin-row"><span><span style="color:var(--pri);font-weight:700;margin-right:6px;">#'+(i+1)+'</span>'+p[0]+'</span><span style="color:var(--green);font-weight:700;">'+p[1]+'</span></div>';}).join(''):'<div style="color:var(--t2);">Sin datos</div>')+
+        '</div>'+
+        '<div class="card"><h3 style="margin-bottom:14px;">Ultimas Ventas</h3>'+
+            (pagados.length>0?pagados.slice(-10).reverse().map(function(p){return '<div class="fin-row"><span style="font-weight:600;">Mesa '+p.mesa+' #'+p.id+'</span><span style="color:var(--green);font-weight:700;">'+fmt(p.total)+'</span></div>';}).join(''):'<div style="color:var(--t2);">Sin ventas</div>')+
+        '</div>'+
+    '</div>';
+}
+
+// =========================================================
+//  CONFIG
+// =========================================================
+function vConfig(){
+    return '<div style="max-width:550px;">'+
+        '<div class="card" style="margin-bottom:16px;"><h3 style="margin-bottom:16px;">Datos del Restaurante</h3>'+
+            '<div class="fg"><label>Nombre</label><input id="c1" value="'+DB.restaurant.name+'"></div>'+
+            '<div class="fg"><label>Direccion</label><input id="c2" value="'+DB.restaurant.address+'"></div>'+
+            '<div class="form-row"><div class="fg"><label>Telefono</label><input id="c3" value="'+DB.restaurant.phone+'"></div><div class="fg"><label>Moneda</label><select id="c4">'+
+            ['$','RD$','€','£','C$','Q','L','S/.','Bs.'].map(function(c){return '<option'+(DB.restaurant.currency===c?' selected':'')+'>'+c+'</option>';}).join('')+'</select></div></div>'+
+            '<button class="btn btn-green btn-lg" onclick="saveConf()">GUARDAR</button>'+
+        '</div>'+
+        '<div class="card" style="margin-bottom:16px;"><h3 style="margin-bottom:16px;">Mesas ('+DB.mesas.length+')</h3>'+
+            '<div style="display:flex;gap:12px;"><button class="btn btn-pri btn-lg" onclick="addMesa();go(\'config\');">+ MESA</button><button class="btn btn-red btn-lg" onclick="rmMesa()">- MESA</button></div>'+
+        '</div>'+
+    '</div>';
+}
+function saveConf(){DB.restaurant.name=$('c1').value.trim()||DB.restaurant.name;DB.restaurant.address=$('c2').value.trim();DB.restaurant.phone=$('c3').value.trim();DB.restaurant.currency=$('c4').value;auditLog('config','Configuracion actualizada');saveDB();render();toast('Guardado');}
+function rmMesa(){if(DB.mesas.length<=1){toast('Minimo 1 mesa','err');return;}var l=DB.mesas[DB.mesas.length-1];if(l.status!=='libre'){toast('Mesa ocupada','err');return;}DB.mesas.pop();saveDB();render();toast('Mesa eliminada');}
+
+// =========================================================
+//  ADMIN / BACKUP / AUDITORIA (HIDDEN)
+// =========================================================
+var adminTab='backup';
+function vAdmin(){
+    return '<div class="tab-bar">'+
+        ['backup','auditoria'].map(function(t){
+            return '<div class="tab-btn'+(adminTab===t?' active':'')+'" onclick="adminTab=\''+t+'\';render();">'+(t==='backup'?'Copias de Seguridad':'Auditoria')+'</div>';
+        }).join('')+
+    '</div>'+(adminTab==='backup'?vBackup():vAuditoria());
+}
+
+function vBackup(){
+    var bc=DB.backupConfig;
+    return '<div class="stats-grid" style="grid-template-columns:1fr 1fr;">'+
+        '<div class="card"><h3 style="margin-bottom:16px;">Backup Manual</h3><p style="color:var(--t2);margin-bottom:14px;">Crea una copia de seguridad ahora mismo.</p>'+
+            '<button class="btn btn-pri btn-lg btn-block" onclick="doManualBackup()">CREAR BACKUP AHORA</button>'+
+        '</div>'+
+        '<div class="card"><h3 style="margin-bottom:16px;">Backup Automatico</h3>'+
+            '<div class="fg"><label>Estado</label><select id="bk-on" onchange="toggleAutoBackup()"><option value="off"'+(bc.enabled?'':' selected')+'>DESACTIVADO</option><option value="on"'+(bc.enabled?' selected':'')+'>ACTIVADO</option></select></div>'+
+            '<div class="fg"><label>Frecuencia</label><select id="bk-freq" onchange="changeBackupFreq()"><option value="daily"'+(bc.frequency==='daily'?' selected':'')+'>Diario</option><option value="weekly"'+(bc.frequency==='weekly'?' selected':'')+'>Semanal</option><option value="monthly"'+(bc.frequency==='monthly'?' selected':'')+'>Mensual</option><option value="yearly"'+(bc.frequency==='yearly'?' selected':'')+'>Anual</option></select></div>'+
+            '<p style="color:var(--t2);font-size:13px;">Ultimo backup: '+(bc.lastBackup?new Date(bc.lastBackup).toLocaleString('es'):'Nunca')+'</p>'+
+        '</div>'+
+    '</div>'+
+    '<div class="card" style="margin-top:16px;"><h3 style="margin-bottom:16px;">Copias Disponibles</h3>'+
+        '<div style="display:flex;gap:12px;margin-bottom:14px;"><button class="btn btn-sec" onclick="loadBackupList()">ACTUALIZAR LISTA</button><button class="btn btn-sec" onclick="cppMsg({action:\'openBackupFolder\'})">ABRIR CARPETA</button></div>'+
+        '<div id="backup-list"><p style="color:var(--t2);">Haz click en "ACTUALIZAR LISTA" para ver las copias disponibles.</p></div>'+
+    '</div>';
+}
+
+function doManualBackup(){cppMsg({action:'backup',label:'manual',data:DB});auditLog('backup_manual','Backup manual creado');saveDB();}
+function toggleAutoBackup(){DB.backupConfig.enabled=$('bk-on').value==='on';auditLog('backup_config','Auto backup '+(DB.backupConfig.enabled?'activado':'desactivado'));saveDB();toast('Backup auto '+(DB.backupConfig.enabled?'ACTIVADO':'desactivado'));}
+function changeBackupFreq(){DB.backupConfig.frequency=$('bk-freq').value;auditLog('backup_config','Frecuencia: '+DB.backupConfig.frequency);saveDB();toast('Frecuencia: '+DB.backupConfig.frequency);}
+function loadBackupList(){cppMsg({action:'listBackups'});}
+
+window.renderBackupList=function(){
+    var list=window._backupList||[];
+    var el=$('backup-list');if(!el)return;
+    if(list.length===0){el.innerHTML='<p style="color:var(--t2);">No hay copias de seguridad.</p>';return;}
+    el.innerHTML='<div class="table-wrap"><table><thead><tr><th>Archivo</th><th>Tamaño</th><th>Fecha</th><th>Acciones</th></tr></thead><tbody>'+
+        list.map(function(b){
+            var sizeKB=(b.size/1024).toFixed(1);
+            return '<tr><td style="font-weight:600;font-size:13px;">'+b.name+'</td><td>'+sizeKB+' KB</td><td style="color:var(--t2);font-size:13px;">'+b.date+'</td><td><button class="btn btn-green btn-sm" onclick="restoreBackupFile(\''+b.name+'\')">RESTAURAR</button> <button class="btn btn-red btn-sm" onclick="deleteBackupFile(\''+b.name+'\')">ELIMINAR</button></td></tr>';
+        }).join('')+'</tbody></table></div>';
+};
+
+function restoreBackupFile(f){
+    openModal('<h2>RESTAURAR BACKUP</h2><p style="color:var(--t2);margin-bottom:16px;">Esto reemplazara TODOS los datos actuales con la copia: <strong style="color:var(--text);">'+f+'</strong></p><p style="color:var(--red);margin-bottom:16px;">Esta accion no se puede deshacer.</p><div class="modal-foot"><button class="btn btn-sec btn-lg" onclick="closeModal()">CANCELAR</button><button class="btn btn-green btn-lg" onclick="cppMsg({action:\'restoreBackup\',filename:\''+f+'\'});closeModal();">RESTAURAR</button></div>');
+}
+function deleteBackupFile(f){
+    cppMsg({action:'deleteBackup',filename:f});
+    toast('Backup eliminado','err');
+    setTimeout(loadBackupList,300);
+}
+
+// AUDITORIA
+function vAuditoria(){
+    var logs=DB.audit.slice().reverse().slice(0,200);
+    return '<div style="margin-bottom:14px;display:flex;gap:12px;align-items:center;"><span style="color:var(--t2);">'+DB.audit.length+' registros totales (mostrando ultimos 200)</span>'+
+        '<button class="btn btn-sec btn-sm" onclick="exportAuditCSV()">EXPORTAR CSV</button><button class="btn btn-sec btn-sm" onclick="printAudit()">IMPRIMIR</button></div>'+
+    '<div class="table-wrap"><table><thead><tr><th>Fecha/Hora</th><th>Accion</th><th>Detalle</th></tr></thead><tbody>'+
+        (logs.length>0?logs.map(function(l){
+            var color='var(--text)';
+            if(l.action.indexOf('cancel')!==-1||l.action.indexOf('del')!==-1)color='var(--red)';
+            else if(l.action.indexOf('pago')!==-1||l.action.indexOf('cobr')!==-1)color='var(--green)';
+            else if(l.action.indexOf('backup')!==-1)color='var(--blue)';
+            return '<tr><td style="color:var(--t2);font-size:13px;white-space:nowrap;">'+new Date(l.date).toLocaleString('es')+'</td><td style="color:'+color+';font-weight:600;">'+l.action+'</td><td>'+l.detail+'</td></tr>';
+        }).join(''):'<tr><td colspan="3" style="text-align:center;padding:40px;color:var(--t2);">Sin registros</td></tr>')+
+    '</tbody></table></div>';
+}
+
+function exportAuditCSV(){
+    var lines=['Fecha,Accion,Detalle'];
+    DB.audit.forEach(function(l){lines.push(new Date(l.date).toLocaleString('es')+','+l.action+','+l.detail.replace(/,/g,';'));});
+    cppMsg({action:'exportFile',filename:'RestaurantApp_Auditoria_'+new Date().toISOString().split('T')[0]+'.csv',content:lines.join('\n')});
+}
+
+function printAudit(){
+    var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:Arial,sans-serif;font-size:11px;margin:20px;}h1{font-size:18px;}table{width:100%;border-collapse:collapse;}th,td{padding:4px 8px;border-bottom:1px solid #ccc;text-align:left;}th{background:#f0f0f0;}</style></head><body><h1>'+DB.restaurant.name+' - Auditoria</h1><p>Fecha: '+new Date().toLocaleString('es')+' | Total registros: '+DB.audit.length+'</p><table><tr><th>Fecha</th><th>Accion</th><th>Detalle</th></tr>'+
+        DB.audit.slice(-100).reverse().map(function(l){return '<tr><td>'+new Date(l.date).toLocaleString('es')+'</td><td>'+l.action+'</td><td>'+l.detail+'</td></tr>';}).join('')+'</table></body></html>';
+    cppMsg({action:'print',html:html});
+}
+
+// =========================================================
+//  INIT
+// =========================================================
+initDB();
+updateClock();
+buildNav();
+render();
+checkAutoBackup();
+</script>
+</body>
+</html>
